@@ -8,6 +8,8 @@ import { OpenAIService } from './services/openai.service';
 import { DatabaseService } from './services/database.service';
 import { LessonPlanController } from './features/create-lesson-plan/lesson-plan.controller';
 import { LessonPlanService } from './features/create-lesson-plan/lesson-plan.service';
+import { ItemsController } from './features/user-items/user-items.controller';
+import { ItemsService } from './features/user-items/user-items.service';
 
 @Module({
   imports: [
@@ -26,11 +28,13 @@ import { LessonPlanService } from './features/create-lesson-plan/lesson-plan.ser
   ],
   controllers: [
     LessonPlanController, // Add LessonPlanController here
+    ItemsController,
   ],
   providers: [
     DatabaseService,
     OpenAIService,
     LessonPlanService,
+    ItemsService,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
