@@ -1,7 +1,15 @@
-import { Controller, Post, Body, Req } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Req,
+  Get,
+  Param,
+  NotFoundException,
+} from '@nestjs/common';
 import { LessonPlanService } from './lesson-plan.service';
 
-@Controller('lesson-plan')
+@Controller('lesson-plans')
 export class LessonPlanController {
   constructor(private readonly lessonPlanService: LessonPlanService) {}
 
@@ -30,5 +38,16 @@ export class LessonPlanController {
       body,
     );
     return { lessonPlan };
+  }
+
+  @Get('/:id')
+  async getLessonPlanById(@Param('id') id: string) {
+    const lessonPlan = await this.lessonPlanService.getLessonPlanById(id);
+
+    if (!lessonPlan) {
+      throw new NotFoundException(`Lesson plan with ID ${id} not found`);
+    }
+
+    return lessonPlan;
   }
 }

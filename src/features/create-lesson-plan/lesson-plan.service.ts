@@ -10,6 +10,9 @@ export class LessonPlanService {
     private readonly databaseService: DatabaseService,
   ) {}
 
+  /**
+   * Creates a new lesson plan using OpenAI and stores it in the database.
+   */
   async createLessonPlan(
     userId: string,
     promptDetails: {
@@ -43,5 +46,19 @@ export class LessonPlanService {
     );
 
     return lessonPlan;
+  }
+
+  /**
+   * Retrieves a lesson plan by its ID.
+   */
+  async getLessonPlanById(id: string) {
+    const query = `
+      SELECT id, user_id, title, overview, materials, learning_objectives, lesson_plan_structure, created_at
+      FROM lesson_plans
+      WHERE id = $1
+    `;
+    const results = await this.databaseService.query(query, [id]);
+
+    return results[0] || null; // Return the lesson plan or null if not found
   }
 }
