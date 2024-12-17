@@ -6,7 +6,8 @@ import { AuthMiddleware } from './common/middleware/auth.middleware';
 import { LoggingMiddleware } from './common/middleware/logging.middleware';
 import { OpenAIService } from './services/openai.service';
 import { DatabaseService } from './services/database.service';
-import { LessonPlanController } from './controllers/lesson-plan.controller';
+import { LessonPlanController } from './features/create-lesson-plan/lesson-plan.controller';
+import { LessonPlanService } from './features/create-lesson-plan/lesson-plan.service';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { LessonPlanController } from './controllers/lesson-plan.controller';
   providers: [
     DatabaseService,
     OpenAIService,
+    LessonPlanService,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
