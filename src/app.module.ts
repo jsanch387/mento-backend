@@ -10,6 +10,10 @@ import { LessonPlanController } from './features/create-lesson-plan/lesson-plan.
 import { LessonPlanService } from './features/create-lesson-plan/lesson-plan.service';
 import { ItemsController } from './features/user-items/user-items.controller';
 import { ItemsService } from './features/user-items/user-items.service';
+import { RatingController } from './features/rating/rating.controller';
+import { RatingService } from './features/rating/rating.service';
+import { UserController } from './features/user-profile/user.controller';
+import { UserService } from './features/user-profile/user.service';
 
 @Module({
   imports: [
@@ -29,12 +33,16 @@ import { ItemsService } from './features/user-items/user-items.service';
   controllers: [
     LessonPlanController, // Add LessonPlanController here
     ItemsController,
+    RatingController,
+    UserController,
   ],
   providers: [
     DatabaseService,
     OpenAIService,
     LessonPlanService,
     ItemsService,
+    RatingService,
+    UserService,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
