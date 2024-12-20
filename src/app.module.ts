@@ -14,6 +14,8 @@ import { RatingController } from './features/rating/rating.controller';
 import { RatingService } from './features/rating/rating.service';
 import { UserController } from './features/user-profile/user.controller';
 import { UserService } from './features/user-profile/user.service';
+import { ContactController } from './features/contact/contact.controller';
+import { ContactService } from './features/contact/contact.service';
 
 @Module({
   imports: [
@@ -35,6 +37,7 @@ import { UserService } from './features/user-profile/user.service';
     ItemsController,
     RatingController,
     UserController,
+    ContactController,
   ],
   providers: [
     DatabaseService,
@@ -43,6 +46,7 @@ import { UserService } from './features/user-profile/user.service';
     ItemsService,
     RatingService,
     UserService,
+    ContactService,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
