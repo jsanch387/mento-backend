@@ -121,29 +121,55 @@ export class StripeService {
   private async updateUserProfile(
     userId: string,
     tier: string,
-    tokens: number | null,
+    newTokens: number | null,
   ) {
-    console.log('Updating user profile:', { userId, tier, tokens });
+    console.log('Updating user profile:', { userId, tier, newTokens });
 
     try {
-      const query = `
+      // Step 1: Retrieve the current token balance
+      const queryGet = `
+        SELECT tokens FROM profiles WHERE id = $1;
+      `;
+      const result = await this.databaseService.query(queryGet, [userId]);
+
+      if (!result || result.length === 0) {
+        console.error(`User with ID ${userId} not found.`);
+        throw new Error('User profile not found.');
+      }
+
+      // Typecast result to ensure TypeScript knows its structure
+      const currentProfile = result[0] as { tokens: number | null };
+
+      const currentTokens = currentProfile.tokens || 0;
+
+      console.log(`Current tokens: ${currentTokens}, New tokens: ${newTokens}`);
+
+      // Step 2: Calculate the new token balance
+      const updatedTokens =
+        newTokens !== null ? currentTokens + newTokens : null;
+
+      // Step 3: Update the profile with the new tier and token balance
+      const queryUpdate = `
         UPDATE profiles
         SET tier = $1, tokens = $2
         WHERE id = $3
         RETURNING *;
       `;
-      const params = [tier, tokens, userId];
+      const params = [tier, updatedTokens, userId];
 
       console.log('Executing query with params:', params);
 
-      const result = await this.databaseService.query(query, params);
+      const updateResult = await this.databaseService.query(
+        queryUpdate,
+        params,
+      );
 
-      if (!result || result.length === 0) {
+      if (!updateResult || updateResult.length === 0) {
         console.error('No rows updated for user:', userId);
         throw new Error('Failed to update user profile. No rows updated.');
       }
 
-      console.log('User profile updated successfully:', result[0]);
+      console.log('User profile updated successfully:', updateResult[0]);
     } catch (error) {
       console.error('Error updating user profile:', error.message);
       throw new Error('Failed to update user profile');
