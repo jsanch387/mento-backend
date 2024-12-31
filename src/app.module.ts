@@ -16,6 +16,9 @@ import { UserController } from './features/user-profile/user.controller';
 import { UserService } from './features/user-profile/user.service';
 import { ContactController } from './features/contact/contact.controller';
 import { ContactService } from './features/contact/contact.service';
+import { StripeController } from './features/stripe/stripe.controller';
+import { StripeService } from './features/stripe/stripe.service';
+import * as bodyParser from 'body-parser';
 
 @Module({
   imports: [
@@ -27,7 +30,7 @@ import { ContactService } from './features/contact/contact.service';
       throttlers: [
         {
           ttl: 60 * 1000, // Time-to-live in milliseconds
-          limit: 10, // Maximum number of requests per `ttl` window
+          limit: 50, // Maximum number of requests per `ttl` window
         },
       ],
     }),
@@ -38,6 +41,7 @@ import { ContactService } from './features/contact/contact.service';
     RatingController,
     UserController,
     ContactController,
+    StripeController,
   ],
   providers: [
     DatabaseService,
@@ -47,6 +51,7 @@ import { ContactService } from './features/contact/contact.service';
     RatingService,
     UserService,
     ContactService,
+    StripeService,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
@@ -55,12 +60,10 @@ import { ContactService } from './features/contact/contact.service';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    this.registerMiddlewares(consumer);
-  }
-
-  private registerMiddlewares(consumer: MiddlewareConsumer) {
     consumer
-      .apply(LoggingMiddleware, AuthMiddleware) // Apply middleware globally
-      .forRoutes('*'); // Apply middleware to all routes
+      .apply(bodyParser.raw({ type: 'application/json' })) // Apply raw body parsing for webhook
+      .forRoutes('/stripe/webhook');
+
+    consumer.apply(LoggingMiddleware, AuthMiddleware).forRoutes('*'); // Apply other middleware
   }
 }
