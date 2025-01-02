@@ -63,6 +63,43 @@ export class StripeService {
     }
   }
 
+  private async createSubscription(
+    userId: string,
+    stripeSubscriptionId: string,
+    plan: string,
+    startDate: Date,
+    renewalDate: Date | null,
+  ) {
+    try {
+      const query = `
+        INSERT INTO subscriptions (user_id, stripe_subscription_id, plan, start_date, renewal_date)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING *;
+      `;
+      const params = [
+        userId,
+        stripeSubscriptionId,
+        plan,
+        startDate,
+        renewalDate,
+      ];
+
+      console.log('Creating subscription with params:', params);
+
+      const result = await this.databaseService.query(query, params);
+
+      if (!result || result.length === 0) {
+        console.error('Failed to create subscription for user:', userId);
+        throw new Error('Subscription creation failed.');
+      }
+
+      console.log('Subscription created successfully:', result[0]);
+    } catch (error) {
+      console.error('Error creating subscription:', error.message);
+      throw new Error('Failed to create subscription.');
+    }
+  }
+
   async handleWebhook(event: Stripe.Event) {
     console.log('Handling webhook event:', event.type);
 
@@ -72,20 +109,29 @@ export class StripeService {
       console.log('Checkout session completed:', session.id);
       const userId = session.client_reference_id;
 
-      // Expand line items
+      // Expand subscription
       const sessionWithLineItems = await this.stripe.checkout.sessions.retrieve(
         session.id,
         {
-          expand: ['line_items'],
+          expand: ['line_items', 'subscription'],
         },
       );
 
       const priceId = sessionWithLineItems.line_items?.data?.[0]?.price?.id;
+      const subscription =
+        sessionWithLineItems.subscription as Stripe.Subscription;
 
-      console.log('Extracted userId:', userId, 'priceId:', priceId);
+      console.log(
+        'Extracted userId:',
+        userId,
+        'priceId:',
+        priceId,
+        'subscription:',
+        subscription?.id,
+      );
 
-      if (!userId || !priceId) {
-        console.error('Missing userId or priceId in session.');
+      if (!userId || !priceId || !subscription?.id) {
+        console.error('Missing userId, priceId, or subscription in session.');
         return;
       }
 
@@ -98,9 +144,24 @@ export class StripeService {
       }
 
       try {
+        // Update user profile
         await this.updateUserProfile(userId, plan.tier, plan.tokens);
+
+        // Create a new subscription in the database
+        const startDate = new Date(subscription.current_period_start * 1000);
+        const renewalDate = subscription.current_period_end
+          ? new Date(subscription.current_period_end * 1000)
+          : null;
+
+        await this.createSubscription(
+          userId,
+          subscription.id,
+          plan.tier,
+          startDate,
+          renewalDate,
+        );
       } catch (error) {
-        console.error('Error updating user profile:', error.message);
+        console.error('Error handling subscription:', error.message);
       }
     } else {
       console.log(`Unhandled event type: ${event.type}`);
