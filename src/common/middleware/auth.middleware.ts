@@ -8,16 +8,26 @@ import * as jwt from 'jsonwebtoken';
 
 @Injectable()
 export class AuthMiddleware implements NestMiddleware {
+  // List of routes to ignore for authentication
+  private readonly ignoredRoutes: string[] = [
+    '/stripe/webhook',
+    '/contact',
+    '/rating',
+  ];
+
+  private isIgnoredRoute(path: string): boolean {
+    return this.ignoredRoutes.some((ignoredRoute) =>
+      path.startsWith(ignoredRoute),
+    );
+  }
+
   use(req: Request, res: Response, next: NextFunction) {
     const fullPath = req.originalUrl; // Get the full path of the request
     console.log(`AuthMiddleware triggered for path: ${fullPath}`);
 
-    // Skip authentication for Stripe Webhook
-    if (
-      fullPath.startsWith('/stripe/webhook') ||
-      fullPath.startsWith('/contact')
-    ) {
-      console.log('Skipping authentication for Stripe Webhook and Contact');
+    // Skip authentication if the route is in the ignoredRoutes list
+    if (this.isIgnoredRoute(fullPath)) {
+      console.log(`Skipping authentication for path: ${fullPath}`);
       return next();
     }
 
