@@ -13,8 +13,11 @@ export class AuthMiddleware implements NestMiddleware {
     console.log(`AuthMiddleware triggered for path: ${fullPath}`);
 
     // Skip authentication for Stripe Webhook
-    if (fullPath.startsWith('/stripe/webhook')) {
-      console.log('Skipping authentication for Stripe Webhook');
+    if (
+      fullPath.startsWith('/stripe/webhook') ||
+      fullPath.startsWith('/contact')
+    ) {
+      console.log('Skipping authentication for Stripe Webhook and Contact');
       return next();
     }
 
