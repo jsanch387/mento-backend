@@ -1,4 +1,4 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Post, Body, BadRequestException } from '@nestjs/common';
 import { RatingService } from './rating.service';
 
 @Controller('rating')
@@ -25,11 +25,21 @@ export class RatingController {
       body.rating < 1 ||
       body.rating > 5
     ) {
-      return { error: 'Invalid input. Please provide valid feedback.' };
+      throw new BadRequestException({
+        statusCode: 400,
+        message: 'Invalid input. Please provide valid feedback.',
+        error: 'Bad Request',
+      });
     }
 
-    // Save feedback and return success
-    const result = await this.ratingService.submitFeedback(body);
-    return { message: 'Thank you for your feedback!', result };
+    try {
+      const result = await this.ratingService.submitFeedback(body);
+      return { message: 'Thank you for your feedback!', result };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error; // Return user-friendly error message
+      }
+      throw new Error('Something went wrong. Please try again later.'); // Generic fallback for unexpected errors
+    }
   }
 }

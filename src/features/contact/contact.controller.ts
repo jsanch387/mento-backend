@@ -17,10 +17,10 @@ export class ContactController {
   ) {
     try {
       await this.contactService.sendContactEmail(body);
-      return { message: 'Your inquiry has been sent successfully.' };
+      return { message: 'Your message has been sent successfully.' };
     } catch (error) {
       console.error('Error sending contact email:', error.message);
-      return { error: 'Failed to send your inquiry. Please try again later.' };
+      return { error: 'Failed to send your message. Please try again later.' };
     }
   }
 }

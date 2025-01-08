@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { DatabaseService } from 'src/services/database.service';
 
 @Injectable()
@@ -18,14 +18,24 @@ export class RatingService {
       RETURNING id, created_at;
     `;
 
-    const result = await this.databaseService.query(query, [
-      data.firstName,
-      data.lastName,
-      data.email,
-      data.rating,
-      data.comment || null,
-    ]);
-
-    return result[0]; // Return the inserted feedback record
+    try {
+      const result = await this.databaseService.query(query, [
+        data.firstName,
+        data.lastName,
+        data.email,
+        data.rating,
+        data.comment || null,
+      ]);
+      return result[0]; // Return the inserted feedback record
+    } catch (error) {
+      if (error.message.includes('duplicate key value')) {
+        throw new BadRequestException({
+          statusCode: 400,
+          message: 'You have already submitted feedback. Thank you!',
+          error: 'Bad Request',
+        });
+      }
+      throw error; // Re-throw other errors
+    }
   }
 }
