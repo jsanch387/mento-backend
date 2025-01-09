@@ -19,6 +19,8 @@ import { ContactService } from './features/contact/contact.service';
 import { StripeController } from './features/stripe/stripe.controller';
 import { StripeService } from './features/stripe/stripe.service';
 import * as bodyParser from 'body-parser';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 
 @Module({
   imports: [
@@ -42,6 +44,7 @@ import * as bodyParser from 'body-parser';
     UserController,
     ContactController,
     StripeController,
+    AppController,
   ],
   providers: [
     DatabaseService,
@@ -52,6 +55,7 @@ import * as bodyParser from 'body-parser';
     UserService,
     ContactService,
     StripeService,
+    AppService,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
