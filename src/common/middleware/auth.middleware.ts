@@ -13,6 +13,7 @@ export class AuthMiddleware implements NestMiddleware {
     '/stripe/webhook',
     '/contact',
     '/rating',
+    '/',
   ];
 
   private isIgnoredRoute(path: string): boolean {
