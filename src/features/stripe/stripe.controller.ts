@@ -34,8 +34,8 @@ export class StripeController {
 
       const session = await this.stripeService.createCheckoutSession(
         priceId,
-        `${process.env.FRONTEND_URL}/success`,
-        `${process.env.FRONTEND_URL}/cancel`,
+        `${process.env.FRONTEND_URL}/dashboard/settings`,
+        `${process.env.FRONTEND_URL}/dashboard/settings`,
         userId,
       );
 

@@ -12,6 +12,7 @@ export interface UserProfile {
 export class UserService {
   constructor(private readonly databaseService: DatabaseService) {}
 
+  //gets the user profile f name, l name, teir, token by id
   async getUserProfileById(userId: string): Promise<UserProfile | null> {
     const query = `
       SELECT profiles.first_name, profiles.last_name, profiles.tier, profiles.tokens
@@ -30,6 +31,7 @@ export class UserService {
     return result[0];
   }
 
+  //update user info
   async updateUserProfile(
     userId: string,
     updateData: { firstName?: string; lastName?: string },
@@ -80,7 +82,7 @@ export class UserService {
     userId: string,
     plan: 'free' | 'basic' | 'pro' | 'unlimited',
   ): Promise<UserProfile | null> {
-    const tokenLimits = { free: 4, basic: 30, pro: 100, unlimited: null };
+    const tokenLimits = { free: 4, basic: 20, pro: 50, unlimited: null };
 
     const query = `
       UPDATE profiles
