@@ -9,10 +9,23 @@ async function bootstrap() {
 
   const logger = new Logger('Bootstrap');
 
-  // Enable CORS with stricter production settings if needed
+  // Configure allowed origins for CORS
+  const allowedOrigins = [
+    'http://localhost:3000', // Local development
+    'https://mento-frontend-orcin.vercel.app/', // Production domain
+  ];
+
   app.enableCors({
-    origin: process.env.CORS_ORIGIN || '*', // Allow specific origins in production
-    credentials: true, // Include credentials if needed
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        // Allow requests from allowed origins or non-browser clients
+        callback(null, true);
+      } else {
+        // Block other origins
+        callback(new Error(`Not allowed by CORS: ${origin}`));
+      }
+    },
+    credentials: true, // Include credentials if needed (e.g., cookies, Authorization headers)
   });
 
   // Use the port from Render's environment variable or a default value
