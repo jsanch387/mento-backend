@@ -22,10 +22,12 @@ export class AuthMiddleware implements NestMiddleware {
   }
 
   use(req: Request, res: Response, next: NextFunction) {
-    const fullPath = req.originalUrl; // Get the full path of the request
+    const fullPath = req.originalUrl;
     console.log(`AuthMiddleware triggered for path: ${fullPath}`);
 
-    // Skip authentication if the route is in the ignoredRoutes list
+    // Log headers to check if the Authorization header is present
+    console.log('Request Headers:', req.headers);
+
     if (this.isIgnoredRoute(fullPath)) {
       console.log(`Skipping authentication for path: ${fullPath}`);
       return next();
@@ -38,7 +40,7 @@ export class AuthMiddleware implements NestMiddleware {
       throw new UnauthorizedException('Authorization header is missing');
     }
 
-    const token = authHeader.split(' ')[1]; // Expecting 'Bearer <token>'
+    const token = authHeader.split(' ')[1];
     if (!token) {
       console.error('Token is missing');
       throw new UnauthorizedException('Token is missing');
@@ -46,7 +48,8 @@ export class AuthMiddleware implements NestMiddleware {
 
     try {
       const decoded = jwt.verify(token, process.env.SUPABASE_JWT_SECRET);
-      req['user'] = decoded; // Attach decoded user data to request object
+      console.log('Decoded token:', decoded);
+      req['user'] = decoded;
       next();
     } catch (error) {
       console.error('Invalid or expired token:', error.message);
