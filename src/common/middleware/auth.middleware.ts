@@ -33,7 +33,6 @@ export class AuthMiddleware implements NestMiddleware {
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {
-      console.error('Authorization header is missing');
       throw new UnauthorizedException('Authorization header is missing');
     }
 
