@@ -23,13 +23,10 @@ export class AuthMiddleware implements NestMiddleware {
 
   use(req: Request, res: Response, next: NextFunction) {
     const fullPath = req.originalUrl;
-    console.log(`AuthMiddleware triggered for path: ${fullPath}`);
 
     // Log headers to check if the Authorization header is present
-    console.log('Request Headers:', req.headers);
 
     if (this.isIgnoredRoute(fullPath)) {
-      console.log(`Skipping authentication for path: ${fullPath}`);
       return next();
     }
 
@@ -48,7 +45,6 @@ export class AuthMiddleware implements NestMiddleware {
 
     try {
       const decoded = jwt.verify(token, process.env.SUPABASE_JWT_SECRET);
-      console.log('Decoded token:', decoded);
       req['user'] = decoded;
       next();
     } catch (error) {

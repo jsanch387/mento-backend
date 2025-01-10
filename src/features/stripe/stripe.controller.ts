@@ -30,8 +30,6 @@ export class StripeController {
     }
 
     try {
-      console.log('Creating checkout session for user:', { userId, priceId });
-
       const session = await this.stripeService.createCheckoutSession(
         priceId,
         `${process.env.FRONTEND_URL}/dashboard/settings`,
@@ -39,7 +37,6 @@ export class StripeController {
         userId,
       );
 
-      console.log('Checkout session created successfully:', session.id);
       return res.status(200).json({ url: session.url });
     } catch (error) {
       console.error('Error creating checkout session:', error.message);
@@ -59,8 +56,6 @@ export class StripeController {
 
     try {
       const event = this.stripeService.verifyWebhook(req.rawBody, signature);
-
-      console.log('Processing event type:', event.type);
 
       await this.stripeService.handleWebhook(event);
 

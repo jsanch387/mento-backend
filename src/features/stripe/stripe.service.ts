@@ -18,8 +18,6 @@ export class StripeService {
     cancelUrl: string,
     userId: string,
   ) {
-    console.log('Creating checkout session:', { priceId, userId });
-
     const session = await this.stripe.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card'],
@@ -37,7 +35,6 @@ export class StripeService {
       cancel_url: cancelUrl,
     });
 
-    console.log('Checkout session created successfully:', session.id);
     return session;
   }
 
@@ -48,14 +45,12 @@ export class StripeService {
       );
     }
 
-    console.log('Verifying webhook event...');
     try {
       const event = this.stripe.webhooks.constructEvent(
         rawBody,
         signature,
         process.env.STRIPE_WEBHOOK_SECRET,
       );
-      console.log('Webhook verified successfully:', event.id);
       return event;
     } catch (error) {
       console.error('Error verifying webhook:', error.message);
@@ -84,16 +79,12 @@ export class StripeService {
         renewalDate,
       ];
 
-      console.log('Creating subscription with params:', params);
-
       const result = await this.databaseService.query(query, params);
 
       if (!result || result.length === 0) {
         console.error('Failed to create subscription for user:', userId);
         throw new Error('Subscription creation failed.');
       }
-
-      console.log('Subscription created successfully:', result[0]);
     } catch (error) {
       console.error('Error creating subscription:', error.message);
       throw new Error('Failed to create subscription.');
@@ -101,12 +92,9 @@ export class StripeService {
   }
 
   async handleWebhook(event: Stripe.Event) {
-    console.log('Handling webhook event:', event.type);
-
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session;
 
-      console.log('Checkout session completed:', session.id);
       const userId = session.client_reference_id;
 
       // Expand subscription
@@ -121,22 +109,12 @@ export class StripeService {
       const subscription =
         sessionWithLineItems.subscription as Stripe.Subscription;
 
-      console.log(
-        'Extracted userId:',
-        userId,
-        'priceId:',
-        priceId,
-        'subscription:',
-        subscription?.id,
-      );
-
       if (!userId || !priceId || !subscription?.id) {
         console.error('Missing userId, priceId, or subscription in session.');
         return;
       }
 
       const plan = this.mapPriceToPlan(priceId);
-      console.log('Mapped priceId to plan:', plan);
 
       if (!plan) {
         console.error('Invalid priceId, no matching plan found.');
@@ -164,7 +142,7 @@ export class StripeService {
         console.error('Error handling subscription:', error.message);
       }
     } else {
-      console.log(`Unhandled event type: ${event.type}`);
+      console.log(`Unhandled event type`);
     }
   }
 
@@ -175,7 +153,6 @@ export class StripeService {
       price_1QbUzkCuDoiqLeJmfEpaPWsq: { tier: 'unlimited', tokens: null },
     };
 
-    console.log('Mapping priceId to plan:', priceId);
     return PLAN_DETAILS[priceId];
   }
 
@@ -184,8 +161,6 @@ export class StripeService {
     tier: string,
     newTokens: number | null,
   ) {
-    console.log('Updating user profile:', { userId, tier, newTokens });
-
     try {
       // Step 1: Retrieve the current token balance
       const queryGet = `
@@ -203,8 +178,6 @@ export class StripeService {
 
       const currentTokens = currentProfile.tokens || 0;
 
-      console.log(`Current tokens: ${currentTokens}, New tokens: ${newTokens}`);
-
       // Step 2: Calculate the new token balance
       const updatedTokens =
         newTokens !== null ? currentTokens + newTokens : null;
@@ -218,8 +191,6 @@ export class StripeService {
       `;
       const params = [tier, updatedTokens, userId];
 
-      console.log('Executing query with params:', params);
-
       const updateResult = await this.databaseService.query(
         queryUpdate,
         params,
@@ -229,8 +200,6 @@ export class StripeService {
         console.error('No rows updated for user:', userId);
         throw new Error('Failed to update user profile. No rows updated.');
       }
-
-      console.log('User profile updated successfully:', updateResult[0]);
     } catch (error) {
       console.error('Error updating user profile:', error.message);
       throw new Error('Failed to update user profile');
