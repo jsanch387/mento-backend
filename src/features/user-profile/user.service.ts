@@ -84,26 +84,86 @@ export class UserService {
   ): Promise<UserProfile | null> {
     const tokenLimits = { free: 4, basic: 20, pro: 50, unlimited: null };
 
-    const query = `
-      UPDATE profiles
-      SET tier = $1,
-          tokens = CASE 
-            WHEN $1 = 'unlimited' THEN NULL
-            ELSE COALESCE(tokens, 0) + $2
-          END
-      WHERE id = $3
-      RETURNING tier, tokens;
-    `;
-    const result = await this.databaseService.query<UserProfile>(query, [
-      plan,
-      tokenLimits[plan],
-      userId,
-    ]);
+    try {
+      // Fetch current token balance and plan
+      const queryGet = `SELECT tokens, tier FROM profiles WHERE id = $1;`;
+      const result = await this.databaseService.query<{
+        tokens: number | null;
+        tier: string;
+      }>(queryGet, [userId]);
 
-    if (result.length === 0) {
-      return null; // Update failed
+      if (result.length === 0) {
+        console.error(`User with ID ${userId} not found.`);
+        return null;
+      }
+
+      const currentTokens = result[0].tokens || 0;
+      const currentTier = result[0].tier;
+
+      console.log(
+        `User ${userId} current plan: ${currentTier}, current tokens: ${currentTokens}`,
+      );
+
+      // Determine the new token balance based on the plan
+      let newTokens: number | null = null;
+
+      if (plan === 'free') {
+        if (currentTier !== 'free') {
+          // If switching back to the free plan, keep the existing tokens
+          newTokens = currentTokens;
+          console.log(
+            `Switching user ${userId} to free plan. Keeping tokens: ${newTokens}`,
+          );
+        } else {
+          // For new users signing up for the free plan, assign free tokens
+          newTokens = tokenLimits.free || 0;
+          console.log(
+            `Assigning free plan tokens (${newTokens}) to new user ${userId}.`,
+          );
+        }
+      } else if (plan === 'unlimited') {
+        // For unlimited plan, set tokens to null
+        newTokens = null;
+        console.log(`Switching user ${userId} to unlimited plan.`);
+      } else {
+        // For paid plans, add the plan's token allocation to the current balance
+        const planTokens = tokenLimits[plan] || 0;
+        newTokens = currentTokens + planTokens;
+        console.log(
+          `Switching user ${userId} to ${plan} plan. Adding ${planTokens} tokens.`,
+        );
+      }
+
+      console.log(
+        `Updating user ${userId} plan to ${plan}. Final token balance: ${newTokens}`,
+      );
+
+      // Update the profile in the database
+      const queryUpdate = `
+        UPDATE profiles
+        SET tier = $1,
+            tokens = $2
+        WHERE id = $3
+        RETURNING tier, tokens;
+      `;
+      const updateResult = await this.databaseService.query<UserProfile>(
+        queryUpdate,
+        [plan, newTokens, userId],
+      );
+
+      if (updateResult.length === 0) {
+        console.error(`Failed to update user plan for user: ${userId}`);
+        return null;
+      }
+
+      console.log(
+        `Plan updated successfully for user ${userId}. New tier: ${plan}, Tokens: ${newTokens}`,
+      );
+
+      return updateResult[0];
+    } catch (error) {
+      console.error('Error updating user plan:', error.message);
+      throw new Error('Failed to update user plan.');
     }
-
-    return result[0];
   }
 }

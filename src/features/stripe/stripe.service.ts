@@ -2,6 +2,15 @@ import { Injectable } from '@nestjs/common';
 import Stripe from 'stripe';
 import { DatabaseService } from '../../services/database.service';
 
+interface Profile {
+  tokens: number | null;
+  tier: string;
+}
+
+interface SubscriptionResult {
+  user_id: string;
+}
+
 @Injectable()
 export class StripeService {
   private stripe: Stripe;
@@ -27,9 +36,7 @@ export class StripeService {
           quantity: 1,
         },
       ],
-      automatic_tax: {
-        enabled: true,
-      },
+      automatic_tax: { enabled: true },
       client_reference_id: userId,
       success_url: successUrl,
       cancel_url: cancelUrl,
@@ -38,11 +45,9 @@ export class StripeService {
     return session;
   }
 
-  verifyWebhook(rawBody: Buffer, signature: string) {
+  verifyWebhook(rawBody: Buffer, signature: string): Stripe.Event {
     if (!process.env.STRIPE_WEBHOOK_SECRET) {
-      throw new Error(
-        'Stripe webhook secret is not set in environment variables',
-      );
+      throw new Error('Stripe webhook secret is not set.');
     }
 
     try {
@@ -58,151 +63,212 @@ export class StripeService {
     }
   }
 
+  private async updateUserProfile(
+    userId: string,
+    tier: string,
+    tokensToAdd: number,
+  ): Promise<Profile> {
+    console.log(`Fetching current profile for user: ${userId}`);
+
+    const queryGetProfile = `SELECT tokens, tier FROM profiles WHERE id = $1;`;
+    const profile: Profile[] = await this.databaseService.query(
+      queryGetProfile,
+      [userId],
+    );
+
+    if (!profile || profile.length === 0) {
+      throw new Error(`User profile not found for user ID: ${userId}`);
+    }
+
+    const currentTokens = profile[0].tokens ?? 0;
+    const currentTier = profile[0].tier;
+
+    console.log(
+      `Current profile for user ${userId}: Tier=${currentTier}, Tokens=${currentTokens}`,
+    );
+
+    // Add tokens based on the plan
+    const updatedTokens = currentTokens + tokensToAdd;
+    console.log(
+      `Adding ${tokensToAdd} tokens to current balance (${currentTokens}) for user ${userId}. New balance: ${updatedTokens}`,
+    );
+
+    const queryUpdateProfile = `
+      UPDATE profiles
+      SET tier = $1, tokens = $2
+      WHERE id = $3
+      RETURNING *;
+    `;
+
+    console.log(
+      `Updating profile for user ${userId} with Tier=${tier} and Tokens=${updatedTokens}`,
+    );
+    const updatedProfile: Profile[] = await this.databaseService.query(
+      queryUpdateProfile,
+      [tier, updatedTokens, userId],
+    );
+
+    if (!updatedProfile || updatedProfile.length === 0) {
+      throw new Error(`Failed to update profile for user ID: ${userId}`);
+    }
+
+    console.log(
+      `Profile updated successfully for user ${userId}: ${JSON.stringify(updatedProfile[0])}`,
+    );
+    return updatedProfile[0];
+  }
+
   private async createSubscription(
     userId: string,
     stripeSubscriptionId: string,
     plan: string,
     startDate: Date,
     renewalDate: Date | null,
-  ) {
-    try {
-      const query = `
-        INSERT INTO subscriptions (user_id, stripe_subscription_id, plan, start_date, renewal_date)
-        VALUES ($1, $2, $3, $4, $5)
-        RETURNING *;
-      `;
-      const params = [
-        userId,
-        stripeSubscriptionId,
-        plan,
-        startDate,
-        renewalDate,
-      ];
+  ): Promise<void> {
+    console.log(
+      `Checking if subscription with StripeSubscriptionID=${stripeSubscriptionId} exists.`,
+    );
 
-      const result = await this.databaseService.query(query, params);
+    const queryCheckSubscription = `
+      SELECT id FROM subscriptions WHERE stripe_subscription_id = $1;
+    `;
+    const existingSubscription = await this.databaseService.query(
+      queryCheckSubscription,
+      [stripeSubscriptionId],
+    );
 
-      if (!result || result.length === 0) {
-        console.error('Failed to create subscription for user:', userId);
-        throw new Error('Subscription creation failed.');
-      }
-    } catch (error) {
-      console.error('Error creating subscription:', error.message);
-      throw new Error('Failed to create subscription.');
+    if (existingSubscription.length > 0) {
+      console.log(
+        `Subscription with StripeSubscriptionID=${stripeSubscriptionId} already exists. Skipping creation.`,
+      );
+      return;
     }
+
+    console.log(`Creating new subscription entry for user ${userId}.`);
+    const queryInsertSubscription = `
+      INSERT INTO subscriptions (user_id, stripe_subscription_id, plan, start_date, renewal_date, status)
+      VALUES ($1, $2, $3, $4, $5, 'active')
+      RETURNING *;
+    `;
+    const result = await this.databaseService.query(queryInsertSubscription, [
+      userId,
+      stripeSubscriptionId,
+      plan,
+      startDate,
+      renewalDate,
+    ]);
+
+    console.log(
+      `Subscription created successfully for user ${userId}: ${JSON.stringify(result[0])}`,
+    );
   }
 
   async handleWebhook(event: Stripe.Event) {
+    console.log(`Webhook received: ${event.type}`);
+
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session;
-
       const userId = session.client_reference_id;
 
-      // Expand subscription
-      const sessionWithLineItems = await this.stripe.checkout.sessions.retrieve(
+      console.log(`Processing checkout session completed for user: ${userId}`);
+
+      const sessionWithDetails = await this.stripe.checkout.sessions.retrieve(
         session.id,
         {
           expand: ['line_items', 'subscription'],
         },
       );
 
-      const priceId = sessionWithLineItems.line_items?.data?.[0]?.price?.id;
+      const priceId = sessionWithDetails.line_items?.data?.[0]?.price?.id;
       const subscription =
-        sessionWithLineItems.subscription as Stripe.Subscription;
+        sessionWithDetails.subscription as Stripe.Subscription;
 
-      if (!userId || !priceId || !subscription?.id) {
-        console.error('Missing userId, priceId, or subscription in session.');
+      console.log(
+        `Session details - Price ID: ${priceId}, Subscription ID: ${subscription?.id}`,
+      );
+
+      if (!userId || !priceId || !subscription) {
+        console.error('Missing details for subscription update.');
         return;
       }
 
       const plan = this.mapPriceToPlan(priceId);
-
       if (!plan) {
-        console.error('Invalid priceId, no matching plan found.');
+        console.error(`Invalid price ID: ${priceId}`);
         return;
       }
 
+      const { tier, tokens } = plan;
+
       try {
-        // Update user profile
-        await this.updateUserProfile(userId, plan.tier, plan.tokens);
+        console.log(
+          `Updating profile for user ${userId} with Plan Tier=${tier} and Tokens=${tokens}`,
+        );
+        await this.updateUserProfile(userId, tier, tokens);
 
-        // Create a new subscription in the database
-        const startDate = new Date(subscription.current_period_start * 1000);
-        const renewalDate = subscription.current_period_end
-          ? new Date(subscription.current_period_end * 1000)
-          : null;
-
+        console.log(
+          `Creating subscription entry for user ${userId} with Subscription ID=${subscription.id}`,
+        );
         await this.createSubscription(
           userId,
           subscription.id,
-          plan.tier,
-          startDate,
-          renewalDate,
+          tier,
+          new Date(subscription.current_period_start * 1000),
+          subscription.current_period_end
+            ? new Date(subscription.current_period_end * 1000)
+            : null,
         );
       } catch (error) {
-        console.error('Error handling subscription:', error.message);
+        console.error(
+          `Error processing subscription for user ${userId}:`,
+          error.message,
+        );
       }
+    } else if (event.type === 'customer.subscription.deleted') {
+      const subscription = event.data.object as Stripe.Subscription;
+
+      console.log(
+        `Processing subscription cancellation for Stripe ID: ${subscription.id}`,
+      );
+      const stripeSubscriptionId = subscription.id;
+
+      const queryUpdateSubscription = `
+        UPDATE subscriptions
+        SET status = 'canceled', end_date = NOW()
+        WHERE stripe_subscription_id = $1
+        RETURNING user_id;
+      `;
+      const result: SubscriptionResult[] = await this.databaseService.query(
+        queryUpdateSubscription,
+        [stripeSubscriptionId],
+      );
+
+      if (!result || result.length === 0) {
+        console.warn(
+          `No subscription found with Stripe ID: ${stripeSubscriptionId}`,
+        );
+        return;
+      }
+
+      const userId = result[0].user_id;
+      console.log(`Switching profile to free for user ${userId}`);
+      const queryUpdateProfile = `
+        UPDATE profiles
+        SET tier = 'free'
+        WHERE id = $1
+        RETURNING *;
+      `;
+      await this.databaseService.query(queryUpdateProfile, [userId]);
     } else {
-      console.log(`Unhandled event type`);
+      console.log(`Unhandled webhook event type: ${event.type}`);
     }
   }
 
   private mapPriceToPlan(priceId: string) {
-    const PLAN_DETAILS = {
-      price_1QbUv4CuDoiqLeJmdmUz8HgV: { tier: 'basic', tokens: 20 },
-      price_1QbUwKCuDoiqLeJm4RkK6lTu: { tier: 'pro', tokens: 50 },
-      price_1QbUzkCuDoiqLeJmfEpaPWsq: { tier: 'unlimited', tokens: null },
+    const PLANS = {
+      price_1BasicPlanID: { tier: 'basic', tokens: 15 }, // Replace with actual Basic Plan ID
+      price_1ProPlanID: { tier: 'pro', tokens: 50 }, // Replace with actual Pro Plan ID
     };
-
-    return PLAN_DETAILS[priceId];
-  }
-
-  private async updateUserProfile(
-    userId: string,
-    tier: string,
-    newTokens: number | null,
-  ) {
-    try {
-      // Step 1: Retrieve the current token balance
-      const queryGet = `
-        SELECT tokens FROM profiles WHERE id = $1;
-      `;
-      const result = await this.databaseService.query(queryGet, [userId]);
-
-      if (!result || result.length === 0) {
-        console.error(`User with ID ${userId} not found.`);
-        throw new Error('User profile not found.');
-      }
-
-      // Typecast result to ensure TypeScript knows its structure
-      const currentProfile = result[0] as { tokens: number | null };
-
-      const currentTokens = currentProfile.tokens || 0;
-
-      // Step 2: Calculate the new token balance
-      const updatedTokens =
-        newTokens !== null ? currentTokens + newTokens : null;
-
-      // Step 3: Update the profile with the new tier and token balance
-      const queryUpdate = `
-        UPDATE profiles
-        SET tier = $1, tokens = $2
-        WHERE id = $3
-        RETURNING *;
-      `;
-      const params = [tier, updatedTokens, userId];
-
-      const updateResult = await this.databaseService.query(
-        queryUpdate,
-        params,
-      );
-
-      if (!updateResult || updateResult.length === 0) {
-        console.error('No rows updated for user:', userId);
-        throw new Error('Failed to update user profile. No rows updated.');
-      }
-    } catch (error) {
-      console.error('Error updating user profile:', error.message);
-      throw new Error('Failed to update user profile');
-    }
+    return PLANS[priceId];
   }
 }
