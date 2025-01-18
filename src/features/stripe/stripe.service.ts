@@ -187,9 +187,9 @@ export class StripeService {
 
   private mapPriceToPlan(priceId: string) {
     const PLAN_DETAILS = {
-      price_1QbUv4CuDoiqLeJmdmUz8HgV: { tier: 'basic', tokens: 20 },
-      price_1QbUwKCuDoiqLeJm4RkK6lTu: { tier: 'pro', tokens: 50 },
-      price_1QbUzkCuDoiqLeJmfEpaPWsq: { tier: 'unlimited', tokens: null },
+      price_1QgGnlCuDoiqLeJmyZ9pDLpK: { tier: 'basic', tokens: 20 }, //prod
+      price_1QgGriCuDoiqLeJmGAIaZu0: { tier: 'pro', tokens: 50 }, //prod
+      price_1QgGsYCuDoiqLeJm4LAVL8ca: { tier: 'unlimited', tokens: null }, //prod
     };
 
     return PLAN_DETAILS[priceId] || null;
