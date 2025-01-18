@@ -6,14 +6,14 @@ export class ContactService {
   private readonly transporter;
 
   constructor() {
-    // Configure your email transport
+    // Configure Postmark as the email transport
     this.transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST, // e.g., smtp.gmail.com
-      port: 587, // or 465 for SSL
-      secure: false, // true for 465, false for other ports
+      host: process.env.EMAIL_HOST, // Postmark SMTP host
+      port: 587, // Port for STARTTLS
+      secure: false, // TLS (STARTTLS) should be false for port 587
       auth: {
-        user: process.env.EMAIL_USER, // Your email
-        pass: process.env.EMAIL_PASS, // Your email password or app-specific password
+        user: process.env.EMAIL_USER, // Postmark email (sender)
+        pass: process.env.EMAIL_PASS, // Postmark Server API token
       },
     });
   }
@@ -25,9 +25,9 @@ export class ContactService {
     message: string;
   }) {
     const mailOptions = {
-      from: `${contact.firstName} ${contact.lastName} <${process.env.EMAIL_USER}>`, // Business email as the sender
-      to: process.env.BUSINESS_EMAIL, // Your business/support email
-      replyTo: contact.email, // Reply-To set to user's email for direct replies
+      from: `${contact.firstName} ${contact.lastName} <${process.env.BUSINESS_EMAIL}>`, // Sender email
+      to: process.env.BUSINESS_EMAIL, // Business/support email
+      replyTo: contact.email, // User's email for replies
       subject: 'General Inquiry', // Customize subject as needed
       text: `
         You have received a new contact form submission:
@@ -45,6 +45,12 @@ export class ContactService {
     };
 
     // Send the email
-    await this.transporter.sendMail(mailOptions);
+    try {
+      await this.transporter.sendMail(mailOptions);
+      console.log('Contact email sent successfully.');
+    } catch (error) {
+      console.error('Error sending contact email:', error);
+      throw new Error('Failed to send contact email.');
+    }
   }
 }
