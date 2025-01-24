@@ -109,8 +109,8 @@ export class StripeService {
   // Helper to map plan to tokens
   private mapPlanToTokens(plan: string) {
     const PLAN_TOKENS = {
-      basic: { tokens: 20 },
-      pro: { tokens: 50 },
+      basic: { tokens: 30 },
+      pro: { tokens: 100 },
       unlimited: { tokens: null },
     };
     return PLAN_TOKENS[plan] || null;
@@ -187,8 +187,8 @@ export class StripeService {
 
   private mapPriceToPlan(priceId: string) {
     const PLAN_DETAILS = {
-      price_1QgGnlCuDoiqLeJmyZ9pDLpK: { tier: 'basic', tokens: 20 }, //prod
-      price_1QgGriCuDoiqLeJmGAIaZu0: { tier: 'pro', tokens: 50 }, //prod
+      price_1QgGnlCuDoiqLeJmyZ9pDLpK: { tier: 'basic', tokens: 30 }, //prod
+      price_1QgGriCuDoiqLeJmGAIaZu0l: { tier: 'pro', tokens: 100 }, //prod
       price_1QgGsYCuDoiqLeJm4LAVL8ca: { tier: 'unlimited', tokens: null }, //prod
     };
 

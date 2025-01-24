@@ -82,7 +82,7 @@ export class UserService {
     userId: string,
     plan: 'free' | 'basic' | 'pro' | 'unlimited',
   ): Promise<UserProfile | null> {
-    const tokenLimits = { free: 4, basic: 20, pro: 50, unlimited: null };
+    const tokenLimits = { free: 4, basic: 30, pro: 100, unlimited: null };
 
     try {
       // Fetch current token balance and plan
