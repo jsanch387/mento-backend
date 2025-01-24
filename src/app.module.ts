@@ -21,6 +21,8 @@ import { StripeService } from './features/stripe/stripe.service';
 import * as bodyParser from 'body-parser';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AnalogiesController } from './features/create-analogy/analogies.controller';
+import { AnalogiesService } from './features/create-analogy/analogies.service';
 
 @Module({
   imports: [
@@ -45,6 +47,7 @@ import { AppService } from './app.service';
     ContactController,
     StripeController,
     AppController,
+    AnalogiesController,
   ],
   providers: [
     DatabaseService,
@@ -56,6 +59,7 @@ import { AppService } from './app.service';
     ContactService,
     StripeService,
     AppService,
+    AnalogiesService,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
