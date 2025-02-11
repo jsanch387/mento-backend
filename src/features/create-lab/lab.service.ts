@@ -14,21 +14,16 @@ export class LabGeneratorService {
     private readonly databaseService: DatabaseService,
   ) {}
 
-  /**
-   * Creates a new lab using OpenAI and saves it to the database.
-   */
   async createLab(
     userId: string,
     promptDetails: {
       gradeLevel: string;
       subject: string;
       duration: string;
-      materials?: string;
       context: string;
-      standards?: string | null; // Standards can now be null
+      standards?: string | null;
     },
   ): Promise<any> {
-    // Validate required fields
     if (
       !promptDetails.gradeLevel ||
       !promptDetails.subject ||
@@ -40,33 +35,36 @@ export class LabGeneratorService {
       );
     }
 
-    // Handle standards input - normalize empty string to null
     const standards = promptDetails.standards || null;
 
-    // Generate the prompt
+    // Generate the prompt including duration
     const prompt = generateLabPrompt({
       ...promptDetails,
       standards,
     });
 
-    // Get the lab from OpenAI
+    // Get the lab response from OpenAI
     const lab = await this.openAIService.generateContent(prompt);
 
-    // Ensure the AI provides a standardAlignment field
+    // Ensure the lab contains required fields
     if (!lab.standardAlignment || lab.standardAlignment.trim() === '') {
       lab.standardAlignment = 'No suggested standard available.';
     }
 
-    // Save to the database
+    if (!lab.duration) {
+      lab.duration = promptDetails.duration;
+    }
+
+    // Save the lab to the database
     try {
       const result = await this.databaseService.query(
         `
           INSERT INTO labs (
             user_id, title, overview, materials, learning_objectives, procedure,
             discussion_questions, extensions, safety_notes, standards_alignment,
-            context
+            duration, context
           )
-          VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, $9::jsonb, $10, $11)
+          VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, $9::jsonb, $10, $11, $12)
           RETURNING *;
         `,
         [
@@ -79,7 +77,8 @@ export class LabGeneratorService {
           JSON.stringify(lab.discussionQuestions),
           JSON.stringify(lab.extensions),
           JSON.stringify(lab.safetyNotes),
-          lab.standardAlignment, // Store the single standard as a string
+          lab.standardAlignment,
+          lab.duration,
           promptDetails.context,
         ],
       );
@@ -91,15 +90,12 @@ export class LabGeneratorService {
     }
   }
 
-  /**
-   * Retrieves a lab by its ID.
-   */
   async getLabById(id: string) {
     try {
       const query = `
         SELECT id, user_id, title, overview, materials, learning_objectives, procedure,
                discussion_questions, extensions, safety_notes, standards_alignment,
-               context, created_at
+               duration, context, created_at
         FROM labs
         WHERE id = $1
       `;

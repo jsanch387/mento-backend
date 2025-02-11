@@ -21,14 +21,13 @@ export class LabGeneratorController {
       gradeLevel: string;
       subject: string;
       duration: string;
-      materials?: string;
       context: string;
       standards?: string;
     },
     @Req() req: any,
   ) {
-    const user = req.user; // Authenticated user from middleware
-    const userId = user.sub; // Use the user's unique ID
+    const user = req.user;
+    const userId = user.sub;
 
     try {
       const lab = await this.labGeneratorService.createLab(userId, body);
