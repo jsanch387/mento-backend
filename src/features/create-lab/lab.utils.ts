@@ -14,9 +14,10 @@ export function generateLabPrompt(promptDetails: {
         ${context}
     
         Requirements:
-        - Include a title, overview, materials list, learning objectives, step-by-step procedure, discussion questions, extensions/modifications, safety notes, and **one standards alignment**.
+        - Include a title, overview, materials list, learning objectives, step-by-step procedure, discussion questions, extensions/modifications, safety notes, **one standards alignment**, and **grade level**.
         - Materials: Suggest a detailed list of appropriate materials based on the context and lab requirements.
-        - duration (a string, e.g., "60 minutes")
+        - Duration: A string (e.g., "60 minutes").
+        - Grade Level: Include the grade level specified in the prompt.
         - Standards alignment: ${
           standards
             ? `Use this exact standard: ${standards}`
@@ -27,12 +28,14 @@ export function generateLabPrompt(promptDetails: {
         Format the response as a JSON object with the following keys:
         - title
         - overview
-        - standardAlignment (a single string, e.g., "NGSS: 5-ESS2-1. Develop a model to describe geosphere interactions.")
+        - subject (string representing the subject of the lab)
+        - standardAlignment (a single string)
         - materials (array of strings)
-        - learningObjectives
-        - procedure (an array of numbered strings as described above)
+        - learningObjectives (array of strings)
+        - procedure (array of numbered strings)
         - discussionQuestions (array of objects with "question", "answer", and "explanation")
-        - extensions
-        - safetyNotes
+        - extensions (array of strings)
+        - safetyNotes (array of strings)
+        - gradeLevel (a string representing the grade level, e.g., "5th Grade")
     `;
 }

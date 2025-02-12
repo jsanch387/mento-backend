@@ -8,7 +8,7 @@ import {
   NotFoundException,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { LabGeneratorService } from './lab.service';
+import { LabData, LabGeneratorService } from './lab.service';
 
 @Controller('labs')
 export class LabGeneratorController {
@@ -39,10 +39,10 @@ export class LabGeneratorController {
   }
 
   @Get('/:id')
-  async getLabById(@Param('id') id: string) {
+  async getLabById(@Param('id') id: string): Promise<{ lab: LabData }> {
     try {
       const lab = await this.labGeneratorService.getLabById(id);
-      return lab;
+      return { lab };
     } catch (error) {
       console.error('Error fetching lab:', error);
       throw new NotFoundException(`Lab with ID ${id} not found`);
