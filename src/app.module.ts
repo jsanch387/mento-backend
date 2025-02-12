@@ -23,6 +23,8 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AnalogiesController } from './features/create-analogy/analogies.controller';
 import { AnalogiesService } from './features/create-analogy/analogies.service';
+import { LabGeneratorController } from './features/create-lab/lab.controller';
+import { LabGeneratorService } from './features/create-lab/lab.service';
 
 @Module({
   imports: [
@@ -48,6 +50,7 @@ import { AnalogiesService } from './features/create-analogy/analogies.service';
     StripeController,
     AppController,
     AnalogiesController,
+    LabGeneratorController,
   ],
   providers: [
     DatabaseService,
@@ -60,6 +63,7 @@ import { AnalogiesService } from './features/create-analogy/analogies.service';
     StripeService,
     AppService,
     AnalogiesService,
+    LabGeneratorService,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
