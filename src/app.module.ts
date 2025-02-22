@@ -25,6 +25,8 @@ import { AnalogiesController } from './features/create-analogy/analogies.control
 import { AnalogiesService } from './features/create-analogy/analogies.service';
 import { LabGeneratorController } from './features/create-lab/lab.controller';
 import { LabGeneratorService } from './features/create-lab/lab.service';
+import { QuizController } from './features/create-quiz/quiz.controller';
+import { QuizService } from './features/create-quiz/quiz.service';
 
 @Module({
   imports: [
@@ -51,6 +53,7 @@ import { LabGeneratorService } from './features/create-lab/lab.service';
     AppController,
     AnalogiesController,
     LabGeneratorController,
+    QuizController,
   ],
   providers: [
     DatabaseService,
@@ -64,6 +67,7 @@ import { LabGeneratorService } from './features/create-lab/lab.service';
     AppService,
     AnalogiesService,
     LabGeneratorService,
+    QuizService,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
