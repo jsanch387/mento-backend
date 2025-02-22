@@ -51,12 +51,24 @@ const RESOURCE_CONFIG: Record<string, ResourceConfig> = {
     `,
     displayName: 'Labs',
   },
+  quizzes: {
+    // 🔥 Updated to include 'topic' field
+    table: 'quizzes',
+    previewQuery: `
+      SELECT id, title, subject, topic, grade_level, number_of_questions, created_at
+      FROM quizzes
+      WHERE user_id = $1
+      ORDER BY created_at DESC;
+    `,
+    displayName: 'Quizzes',
+  },
 };
 
 @Injectable()
 export class ItemsService {
   constructor(private readonly databaseService: DatabaseService) {}
 
+  // 🔥 Get user items count for all resources including quizzes
   async getUserItems(userId: string) {
     const items = [];
 
@@ -79,6 +91,7 @@ export class ItemsService {
     return items;
   }
 
+  // 🔥 Get item previews (now includes topic for quizzes)
   async getItemPreviews(userId: string, itemType: string): Promise<any[]> {
     const config = RESOURCE_CONFIG[itemType];
     if (!config) {
