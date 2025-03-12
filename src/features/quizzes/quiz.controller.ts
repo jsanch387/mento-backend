@@ -15,6 +15,21 @@ import { GradedQuizResponse } from './types/quiz.types';
 export class QuizController {
   constructor(private readonly quizService: QuizService) {}
 
+  //gets all quizzes that the user has launched
+  @Get('/launched')
+  async getLaunchedQuizzes(@Req() req) {
+    console.log('🔍 Incoming request user:', req.user);
+
+    if (!req.user || !req.user.sub) {
+      console.error('❌ User ID (sub) is missing from request.');
+      throw new InternalServerErrorException('User ID is required.');
+    }
+
+    const userId = req.user.sub; // ✅ Use `sub` instead of `id`
+    return this.quizService.getLaunchedQuizzes(userId);
+  }
+
+  //generates a quiz based on the parameters provided
   @Post()
   async generateQuiz(
     @Body()
@@ -45,6 +60,7 @@ export class QuizController {
     }
   }
 
+  //gets a quiz by id
   @Get('/:id')
   async getQuizById(@Param('id') id: string) {
     try {
@@ -58,6 +74,7 @@ export class QuizController {
     }
   }
 
+  //launches a quiz and creates db entry for it
   @Post('/:id/launch')
   async launchQuiz(
     @Param('id') quizId: string,
@@ -94,6 +111,8 @@ export class QuizController {
       throw new InternalServerErrorException('Failed to launch quiz');
     }
   }
+
+  //this is for students to access the quiz
   @Get('/launched/:launchId')
   async getLaunchedQuiz(@Param('launchId') launchId: string) {
     try {
@@ -110,12 +129,13 @@ export class QuizController {
     }
   }
 
-  @Get('/:id/existing-launch')
-  async checkExistingLaunch(@Param('id') quizId: string) {
-    const result = await this.quizService.getExistingLaunchForQuiz(quizId);
-    return result;
-  }
+  // @Get('/:id/existing-launch')
+  // async checkExistingLaunch(@Param('id') quizId: string) {
+  //   const result = await this.quizService.getExistingLaunchForQuiz(quizId);
+  //   return result;
+  // }
 
+  //grades the student quiz stores in new row, updates launched_quizzes db entry - count and average
   @Post('/grade')
   async gradeQuiz(
     @Body() submission: any,
@@ -128,6 +148,22 @@ export class QuizController {
     } catch (error) {
       console.error('❌ Failed to grade quiz:', error.message);
       throw new InternalServerErrorException('Failed to grade quiz.');
+    }
+  }
+
+  //gets the overview of the launched quiz - stats, average, count, etc
+  @Get('/launched/:id/overview')
+  async getLaunchedQuizOverview(@Param('id') launchId: string) {
+    try {
+      console.log(`🔍 Fetching overview for launched quiz: ${launchId}`);
+      const quizOverview =
+        await this.quizService.getLaunchedQuizOverview(launchId);
+      return { quiz: quizOverview };
+    } catch (error) {
+      console.error('❌ Error fetching launched quiz overview:', error);
+      throw new InternalServerErrorException(
+        'Failed to fetch launched quiz overview.',
+      );
     }
   }
 }
