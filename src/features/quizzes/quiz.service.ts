@@ -14,19 +14,19 @@ import { generateGradingPrompt } from './utils/quizGrading.utils';
 // import { parseStrictJSON } from './utils/json.utls';
 
 // Define types for database results
-interface QuizOverview {
-  id: string;
-  quiz_id: string;
-  class_name: string;
-  launch_date: Date;
-  title: string;
-  total_questions: number;
-  students_taken: number;
-  average_score: number;
-  ai_insights: any;
-  launch_url: string;
-  status: string;
-}
+// interface QuizOverview {
+//   id: string;
+//   quiz_id: string;
+//   class_name: string;
+//   launch_date: Date;
+//   title: string;
+//   total_questions: number;
+//   students_taken: number;
+//   average_score: number;
+//   ai_insights: any;
+//   launch_url: string;
+//   status: string;
+// }
 
 interface StudentResult {
   student_id: string;
@@ -245,7 +245,6 @@ export class QuizService {
           l.status, -- ✅ Fetch the quiz status from launched_quizzes
           COALESCE(l.students_completed, 0) AS students_completed,
           COALESCE(l.average_score, 0) AS average_score,
-          COALESCE(l.smart_insights, '{}'::jsonb) AS smart_insights,
           COALESCE(l.deployment_url, '') AS deployment_url
         FROM launched_quizzes l
         JOIN quizzes q ON l.quiz_id = q.id
@@ -431,7 +430,7 @@ export class QuizService {
     launchUrl: string;
     qrCodeData?: string; // ✅ Add QR Code field
     totalQuestions: number;
-    aiInsights: any;
+    smartInsights: string | null; // ✅ Updated type from JSONB to TEXT
     students: {
       id: string;
       name: string;
@@ -446,7 +445,7 @@ export class QuizService {
         `📊 Fetching launched quiz overview for launchId: ${launchId}`,
       );
 
-      // Query to fetch quiz overview
+      // ✅ Query to fetch quiz overview
       const quizQuery = `
         SELECT 
           l.id, 
@@ -457,7 +456,7 @@ export class QuizService {
           q.number_of_questions AS total_questions,
           COALESCE(l.students_completed, 0) AS students_taken,
           COALESCE(l.average_score, 0) AS average_score,
-          COALESCE(l.smart_insights, '{}'::jsonb) AS ai_insights, 
+          COALESCE(l.smart_insights, '') AS smart_insights, -- ✅ Updated to handle TEXT type
           COALESCE(l.deployment_url, '') AS launch_url,
           l.status
         FROM launched_quizzes l
@@ -465,7 +464,7 @@ export class QuizService {
         WHERE l.id = $1;
       `;
 
-      // Query to fetch student results
+      // ✅ Query to fetch student results
       const studentResultsQuery = `
         SELECT 
           id AS student_id, 
@@ -477,48 +476,63 @@ export class QuizService {
       `;
 
       // Fetch quiz overview
-      const quizOverviewResult: QuizOverview[] =
-        await this.databaseService.query(quizQuery, [launchId]);
+      const quizOverviewResult = await this.databaseService.query(quizQuery, [
+        launchId,
+      ]);
 
       if (quizOverviewResult.length === 0) {
         throw new NotFoundException(
           `❌ No quiz found for launchId: ${launchId}`,
         );
       }
-      const quizOverview = quizOverviewResult[0];
+
+      const quizOverview = quizOverviewResult[0] as {
+        id: string;
+        title: string;
+        class_name: string;
+        launch_date: Date;
+        students_taken: number;
+        average_score: number;
+        status: string;
+        launch_url: string;
+        smart_insights: string | null;
+        total_questions: number;
+      };
 
       // Fetch student results
-      const studentResults: StudentResult[] = await this.databaseService.query(
+      const studentResults = await this.databaseService.query(
         studentResultsQuery,
         [launchId],
       );
 
-      // Process student results
-      const formattedStudents = studentResults.map((student) => {
-        let answers: { isCorrect: boolean }[] = [];
+      // ✅ Process student results
+      const formattedStudents = (studentResults as StudentResult[]).map(
+        (student) => {
+          let answers: { isCorrect: boolean }[] = [];
 
-        try {
-          answers =
-            typeof student.graded_answers === 'string'
-              ? JSON.parse(student.graded_answers)
-              : student.graded_answers;
-        } catch (error) {
-          console.error(
-            `❌ Failed to parse graded_answers for student ${student.student_name}:`,
-            error,
-          );
-          answers = [];
-        }
+          try {
+            answers =
+              typeof student.graded_answers === 'string'
+                ? JSON.parse(student.graded_answers)
+                : (student.graded_answers as { isCorrect: boolean }[]);
+          } catch (error) {
+            console.error(
+              `❌ Failed to parse graded_answers for student ${student.student_name}:`,
+              error,
+            );
+            answers = [];
+          }
 
-        return {
-          id: student.student_id,
-          name: student.student_name,
-          score: student.score,
-          correct: answers.filter((a) => a.isCorrect).length,
-          incorrect: answers.filter((a) => !a.isCorrect).length,
-          status: 'Completed',
-        };
-      });
+          return {
+            id: student.student_id,
+            name: student.student_name,
+            score: student.score,
+            correct: answers.filter((a) => a.isCorrect).length,
+            incorrect: answers.filter((a) => !a.isCorrect).length,
+            status: 'Completed',
+          };
+        },
+      );
 
       // ✅ Generate QR Code dynamically for the launch URL
       const qrCodeData = await generateQRCode(quizOverview.launch_url);
@@ -534,7 +548,7 @@ export class QuizService {
         launchUrl: quizOverview.launch_url,
         qrCodeData, // ✅ Include the QR Code in the response
         totalQuestions: quizOverview.total_questions,
-        aiInsights: quizOverview.ai_insights,
+        smartInsights: quizOverview.smart_insights || null, // ✅ Ensure correct type
         students: formattedStudents,
       };
     } catch (error) {
@@ -543,5 +557,219 @@ export class QuizService {
         'Failed to fetch launched quiz overview.',
       );
     }
+  }
+
+  async updateQuizStatus(
+    quizId: string,
+    status: string,
+    smartInsights: string | null,
+  ) {
+    try {
+      console.log(`📌 Updating quiz ${quizId} to status: ${status}`);
+
+      const query = `
+        UPDATE launched_quizzes
+        SET status = $1, smart_insights = $2
+        WHERE id = $3
+      `;
+
+      await this.databaseService.query(query, [status, smartInsights, quizId]);
+
+      console.log('✅ Quiz status and smart insights updated successfully!');
+    } catch (error) {
+      console.error('❌ Error updating quiz status and insights:', error);
+      throw new InternalServerErrorException(
+        'Failed to update quiz status and save insights.',
+      );
+    }
+  }
+
+  async generateSmartInsights(quizId: string): Promise<string | null> {
+    try {
+      console.log(`🔍 Fetching student results for quiz ID: ${quizId}`);
+
+      // Fetch quiz metadata (average score, etc.)
+      const quizQuery = `
+        SELECT average_score 
+        FROM launched_quizzes 
+        WHERE id = $1
+      `;
+      const quizData = await this.databaseService.query(quizQuery, [quizId]);
+
+      if (!quizData.length) {
+        console.warn(`⚠ No quiz found for ID: ${quizId}.`);
+        return 'No quiz data available.';
+      }
+
+      const averageScore = (quizData[0] as { average_score: number })
+        .average_score; // ✅ Use pre-calculated average score
+
+      // Fetch student results
+      const resultsQuery = `
+        SELECT student_name, score_percentage, graded_answers
+        FROM student_quiz_results
+        WHERE deployment_id = $1
+      `;
+
+      const studentResults = await this.databaseService.query(resultsQuery, [
+        quizId,
+      ]);
+
+      if (!studentResults.length) {
+        console.warn(`⚠ No student results found for quiz ${quizId}.`);
+        return 'There are no student responses yet. Please wait for more students to submit the quiz.';
+      }
+
+      console.log(`📊 Found ${studentResults.length} student results.`);
+
+      // ✅ Ensure we send all needed data to AI
+      const processedData = this.prepareQuizDataForAI(
+        studentResults,
+        averageScore,
+      );
+
+      console.log('🧠 Generating AI prompt...');
+      const prompt = this.generateInsightsPrompt(processedData);
+
+      console.log('🔍 Sending request to OpenAI...');
+      const aiResponse = await this.openAIService.generateTextContent(prompt);
+
+      if (!aiResponse) {
+        console.error('❌ AI response missing.');
+        return 'Smart insights could not be generated at this time. Please try again later.';
+      }
+
+      console.log('✅ AI Smart Insights received:', aiResponse);
+
+      return aiResponse;
+    } catch (error) {
+      console.error('❌ Error generating Smart Insights:', error);
+      return 'Smart insights could not be generated due to an error.';
+    }
+  }
+
+  private prepareQuizDataForAI(studentResults: any[], averageScore: number) {
+    const questionMissCount: Record<string, number> = {};
+    const strugglingStudents: string[] = [];
+    const topStudents: string[] = [];
+    const middleTier: string[] = [];
+
+    studentResults.forEach((student) => {
+      let correctCount = 0;
+
+      student.graded_answers.forEach((answer: any) => {
+        if (!answer.isCorrect) {
+          // Track most-missed questions
+          questionMissCount[answer.question] =
+            (questionMissCount[answer.question] || 0) + 1;
+        } else {
+          correctCount++;
+        }
+      });
+
+      const percentage = (correctCount / student.graded_answers.length) * 100;
+      if (percentage < 50) strugglingStudents.push(student.student_name);
+      else if (percentage >= 50 && percentage < 80)
+        middleTier.push(student.student_name);
+      else topStudents.push(student.student_name);
+    });
+
+    const mostMissedQuestions = Object.entries(questionMissCount)
+      .sort((a, b) => b[1] - a[1])
+      .map(([question, timesMissed]) => ({
+        question,
+        timesMissed,
+        reason:
+          'This question was commonly missed, indicating a need for further explanation or practice.',
+      }));
+
+    return {
+      totalStudents: studentResults.length,
+      averageScore, // ✅ Using the database value instead of recalculating
+      mostMissedQuestions,
+      topStruggle:
+        mostMissedQuestions.length > 0
+          ? mostMissedQuestions[0].question
+          : 'No major struggles identified',
+      strugglingStudents,
+      middleTier,
+      topStudents,
+    };
+  }
+
+  private generateInsightsPrompt(quizData: any) {
+    return `
+    You are an **AI Teaching Assistant** helping a fellow teacher analyze their class quiz results.  
+    Your goal is to **highlight patterns, identify struggles, and provide creative, practical recommendations** to help improve student understanding.  
+  
+    🎯 **How to respond:**  
+    - Be **friendly and conversational**, like a teacher talking to another teacher.  
+    - Use **plain, simple English** and make it **fun, modern, and engaging**.  
+    - Structure insights **clearly using Markdown** for easy scanning.  
+    - Give **data-driven teaching suggestions** based on real struggles in this quiz.  
+    - Avoid generic advice—**be specific and insightful** based on student performance.  
+  
+    ---
+    ## 📌 Quick Overview  
+    - **Class Average Score:** ${quizData.averageScore ?? 'N/A'}%.  
+    - **Biggest Challenge:** ${
+      quizData.topStruggle?.length
+        ? quizData.topStruggle
+        : 'No major struggles detected.'
+    }  
+  
+    ---
+    ## ❌ What Students Struggled With  
+    ${
+      quizData.mostMissedQuestions?.length > 0
+        ? quizData.mostMissedQuestions
+            .map(
+              (q) =>
+                `- **${q.question}** (Missed ${q.timesMissed} times)  
+                💡 Why? ${q.reason}`,
+            )
+            .join('\n')
+        : "Students didn't seem to struggle significantly with any specific question."
+    }
+  
+    ---
+    ## 🎯 Student Performance Breakdown  
+    - **High Performers (80%+ Score):** ${
+      quizData.topStudents?.length > 0
+        ? quizData.topStudents.join(', ')
+        : 'None'
+    }  
+    - **Middle Performers (50-79% Score):** ${
+      quizData.middleTier?.length > 0 ? quizData.middleTier.join(', ') : 'None'
+    }  
+    - **Struggling Students (<50% Score):** ${
+      quizData.strugglingStudents?.length > 0
+        ? quizData.strugglingStudents.join(', ')
+        : 'None'
+    }  
+  
+    ---
+    ## 📝 Smart Teaching Suggestions  
+    Based on the quiz results, here’s what **you can do next** to reinforce learning in a fun and effective way:  
+  
+    ${
+      quizData.mostMissedQuestions?.length > 0
+        ? quizData.mostMissedQuestions
+            .map(
+              (q) =>
+                `### **🔹 Reinforce: "${q.question}"**  
+                **Why students struggled:** ${q.reason}  
+                **Try this approach:** [Let AI suggest an engaging way to teach this topic]`,
+            )
+            .join('\n\n')
+        : 'No extra reinforcement needed this time—great job!'
+    }
+  
+    ---
+    ## 📢 Final Thoughts  
+    ${quizData.averageScore < 60 ? '📉 This was a tough quiz! Consider a quick review session to clear up confusion.' : '✅ The class did well! A small recap might help reinforce key concepts.'}  
+  
+    🔹 Keep the feedback **friendly, useful, and insightful**—make it feel like a fellow teacher sharing their best advice!  
+    `.trim();
   }
 }

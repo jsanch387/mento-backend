@@ -7,6 +7,7 @@ import {
   Param,
   NotFoundException,
   InternalServerErrorException,
+  BadRequestException,
 } from '@nestjs/common';
 import { QuizService } from './quiz.service';
 import { GradedQuizResponse } from './types/quiz.types';
@@ -164,6 +165,59 @@ export class QuizController {
       throw new InternalServerErrorException(
         'Failed to fetch launched quiz overview.',
       );
+    }
+  }
+
+  @Post('/:id/status')
+  async updateQuizStatus(
+    @Param('id') quizId: string,
+    @Body() body: { status: 'active' | 'closed' },
+    @Req() req: any,
+  ) {
+    const userId = req.user.sub; // Teacher's ID
+
+    try {
+      console.log(
+        `🔹 Teacher ${userId} updating Quiz ${quizId} to ${body.status}`,
+      );
+
+      // Validate status
+      if (!['active', 'closed'].includes(body.status)) {
+        throw new BadRequestException('Invalid quiz status.');
+      }
+
+      let smartInsights: string | null = null;
+
+      // ✅ If closing the quiz, generate AI insights
+      if (body.status === 'closed') {
+        console.log('📊 Quiz is being closed. Running Smart Insights...');
+        smartInsights = await this.quizService.generateSmartInsights(quizId);
+
+        if (!smartInsights) {
+          console.warn('⚠ Smart Insights could not be generated.');
+          smartInsights = 'Smart insights could not be generated at this time.';
+        }
+      }
+
+      // ✅ Update quiz status & save insights in the database
+      await this.quizService.updateQuizStatus(
+        quizId,
+        body.status,
+        smartInsights,
+      );
+
+      console.log(
+        `✅ Quiz ${quizId} updated to ${body.status}. Insights saved.`,
+      );
+
+      return {
+        message: `✅ Quiz successfully updated to ${body.status}`,
+        status: body.status,
+        smartInsights,
+      };
+    } catch (error) {
+      console.error('❌ Error updating quiz status:', error);
+      throw new InternalServerErrorException('Failed to update quiz status.');
     }
   }
 }
