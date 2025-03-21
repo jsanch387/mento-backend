@@ -25,8 +25,8 @@ import { AnalogiesController } from './features/create-analogy/analogies.control
 import { AnalogiesService } from './features/create-analogy/analogies.service';
 import { LabGeneratorController } from './features/create-lab/lab.controller';
 import { LabGeneratorService } from './features/create-lab/lab.service';
-import { QuizController } from './features/create-quiz/quiz.controller';
-import { QuizService } from './features/create-quiz/quiz.service';
+import { QuizController } from './features/quizzes/quiz.controller';
+import { QuizService } from './features/quizzes/quiz.service';
 
 @Module({
   imports: [

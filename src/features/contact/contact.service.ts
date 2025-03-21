@@ -47,7 +47,7 @@ export class ContactService {
     // Send the email
     try {
       await this.transporter.sendMail(mailOptions);
-      console.log('Contact email sent successfully.');
+      // console.log('Contact email sent successfully.');
     } catch (error) {
       console.error('Error sending contact email:', error);
       throw new Error('Failed to send contact email.');

@@ -33,9 +33,12 @@
     "nodemailer": "^6.9.16",
     "openai": "^4.76.3",
     "pg": "^8.13.1",
+    "qrcode": "^1.5.4",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1",
-    "stripe": "^17.5.0"
+    "stripe": "^17.5.0",
+    "uuid": "^11.1.0",
+    "zod": "^3.24.2"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.0.0",

@@ -22,7 +22,6 @@ export class StripeService {
     cancelUrl: string,
     userId: string,
   ) {
-    console.log(`Creating checkout session for user ${userId}`);
     const session = await this.stripe.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card'],
@@ -40,7 +39,6 @@ export class StripeService {
       cancel_url: cancelUrl,
     });
 
-    console.log(`Checkout session created: ${session.id}`);
     return session;
   }
 
@@ -57,7 +55,6 @@ export class StripeService {
         signature,
         process.env.STRIPE_WEBHOOK_SECRET,
       );
-      console.log('Webhook verified successfully.');
       return event;
     } catch (error) {
       console.error('Error verifying webhook:', error.message);
@@ -66,8 +63,6 @@ export class StripeService {
   }
 
   async handleWebhook(event: Stripe.Event) {
-    console.log(`Webhook received: ${event.type}`);
-
     try {
       switch (event.type) {
         case 'checkout.session.completed':
@@ -99,7 +94,6 @@ export class StripeService {
           break;
 
         default:
-          console.log(`Unhandled webhook event type: ${event.type}`);
       }
     } catch (error) {
       console.error(`Error processing webhook ${event.type}:`, error.message);
@@ -143,8 +137,6 @@ export class StripeService {
         console.error(`Failed to create subscription for user ${userId}`);
         throw new Error('Subscription creation failed.');
       }
-
-      console.log(`Subscription created successfully for user ${userId}`);
     } catch (error) {
       console.error('Error creating subscription:', error.message);
       throw error;
@@ -157,9 +149,6 @@ export class StripeService {
     newTokens: number | null,
   ) {
     try {
-      console.log(
-        `Updating profile for user ${userId} to tier=${tier} and tokens=${newTokens}`,
-      );
       const queryUpdate = `
         UPDATE profiles
         SET tier = $1, tokens = $2
@@ -177,8 +166,6 @@ export class StripeService {
         console.error(`Failed to update profile for user ${userId}`);
         throw new Error('Profile update failed.');
       }
-
-      console.log(`Profile updated successfully for user ${userId}`);
     } catch (error) {
       console.error('Error updating user profile:', error.message);
       throw error;
