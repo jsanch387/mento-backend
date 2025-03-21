@@ -10,9 +10,6 @@ export const handleCustomerSubscriptionDeleted = async (
   databaseService: DatabaseService,
 ) => {
   const subscription = event.data.object as Stripe.Subscription;
-  console.log(
-    `Processing subscription deletion for Stripe ID: ${subscription.id}`,
-  );
 
   try {
     const queryUpdateSubscription = `
@@ -32,9 +29,6 @@ export const handleCustomerSubscriptionDeleted = async (
     }
 
     const userId = result[0].user_id; // TypeScript now recognizes `user_id` exists
-    console.log(
-      `Updating profile for user ${userId} to tier=free and tokens=0`,
-    );
 
     const queryUpdateProfile = `
       UPDATE profiles

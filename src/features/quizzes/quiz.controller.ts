@@ -8,6 +8,7 @@ import {
   NotFoundException,
   InternalServerErrorException,
   BadRequestException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { QuizService } from './quiz.service';
 import { GradedQuizResponse } from './types/quiz.types';
@@ -19,7 +20,7 @@ export class QuizController {
   //gets all quizzes that the user has launched
   @Get('/launched')
   async getLaunchedQuizzes(@Req() req) {
-    console.log('🔍 Incoming request user:', req.user);
+    // console.log('🔍 Incoming request user:', req.user);
 
     if (!req.user || !req.user.sub) {
       console.error('❌ User ID (sub) is missing from request.');
@@ -48,9 +49,9 @@ export class QuizController {
     const userId = user.sub;
 
     try {
-      console.log(
-        `Generating quiz for user: ${userId} | Topic: ${body.topic} | Subject: ${body.subject}`,
-      );
+      // console.log(
+      //   `Generating quiz for user: ${userId} | Topic: ${body.topic} | Subject: ${body.subject}`,
+      // );
 
       // ✅ Pass the complete body including subject to QuizService
       const quiz = await this.quizService.generateQuiz(userId, body);
@@ -65,7 +66,7 @@ export class QuizController {
   @Get('/:id')
   async getQuizById(@Param('id') id: string) {
     try {
-      console.log(`Fetching quiz ID: ${id}`);
+      // console.log(`Fetching quiz ID: ${id}`);
 
       const quiz = await this.quizService.getQuizById(id);
       return { quiz };
@@ -75,7 +76,7 @@ export class QuizController {
     }
   }
 
-  //launches a quiz and creates db entry for it
+  // ✅ Launches a quiz and creates a DB entry for it
   @Post('/:id/launch')
   async launchQuiz(
     @Param('id') quizId: string,
@@ -86,14 +87,15 @@ export class QuizController {
     const userId = user.sub;
 
     try {
-      console.log(
-        `🔹 Teacher [User ID: ${userId}] launching Quiz ID: ${quizId}`,
-      );
-      console.log(`🔹 Class: ${body.className}`);
+      // console.log(
+      //   `🔹 Teacher [User ID: ${userId}] launching Quiz ID: ${quizId}`,
+      // );
+      // console.log(`🔹 Class: ${body.className}`);
       if (body.notes) {
-        console.log(`📝 Notes: ${body.notes}`);
+        // console.log(`📝 Notes: ${body.notes}`);
       }
 
+      // ✅ Call service method to launch quiz
       const launchData = await this.quizService.launchQuiz(
         userId,
         quizId,
@@ -106,10 +108,11 @@ export class QuizController {
         launchId: launchData.launchId,
         deploymentLink: launchData.deploymentLink,
         qrCodeData: launchData.qrCodeData,
+        accessCode: launchData.accessCode, // ✅ Ensure access code is returned
       };
     } catch (error) {
       console.error('❌ Error launching quiz:', error);
-      throw new InternalServerErrorException('Failed to launch quiz');
+      throw new InternalServerErrorException('Failed to launch quiz.');
     }
   }
 
@@ -117,7 +120,7 @@ export class QuizController {
   @Get('/launched/:launchId')
   async getLaunchedQuiz(@Param('launchId') launchId: string) {
     try {
-      console.log(`📢 Student accessing quiz with launchId: ${launchId}`);
+      // console.log(`📢 Student accessing quiz with launchId: ${launchId}`);
 
       const quiz = await this.quizService.getLaunchedQuiz(launchId);
 
@@ -141,7 +144,7 @@ export class QuizController {
   async gradeQuiz(
     @Body() submission: any,
   ): Promise<{ gradedAnswers: GradedQuizResponse['gradedAnswers'] }> {
-    console.log('📥 Incoming submission:', JSON.stringify(submission, null, 2));
+    // console.log('📥 Incoming submission:', JSON.stringify(submission, null, 2));
 
     try {
       const gradedQuiz = await this.quizService.gradeStudentQuiz(submission);
@@ -156,7 +159,7 @@ export class QuizController {
   @Get('/launched/:id/overview')
   async getLaunchedQuizOverview(@Param('id') launchId: string) {
     try {
-      console.log(`🔍 Fetching overview for launched quiz: ${launchId}`);
+      // console.log(`🔍 Fetching overview for launched quiz: ${launchId}`);
       const quizOverview =
         await this.quizService.getLaunchedQuizOverview(launchId);
       return { quiz: quizOverview };
@@ -172,14 +175,14 @@ export class QuizController {
   async updateQuizStatus(
     @Param('id') quizId: string,
     @Body() body: { status: 'active' | 'closed' },
-    @Req() req: any,
+    // @Req() req: any,
   ) {
-    const userId = req.user.sub; // Teacher's ID
+    // const userId = req.user.sub; // Teacher's ID
 
     try {
-      console.log(
-        `🔹 Teacher ${userId} updating Quiz ${quizId} to ${body.status}`,
-      );
+      // console.log(
+      //   `🔹 Teacher ${userId} updating Quiz ${quizId} to ${body.status}`,
+      // );
 
       // Validate status
       if (!['active', 'closed'].includes(body.status)) {
@@ -190,7 +193,7 @@ export class QuizController {
 
       // ✅ If closing the quiz, generate AI insights
       if (body.status === 'closed') {
-        console.log('📊 Quiz is being closed. Running Smart Insights...');
+        // console.log('📊 Quiz is being closed. Running Smart Insights...');
         smartInsights = await this.quizService.generateSmartInsights(quizId);
 
         if (!smartInsights) {
@@ -206,9 +209,9 @@ export class QuizController {
         smartInsights,
       );
 
-      console.log(
-        `✅ Quiz ${quizId} updated to ${body.status}. Insights saved.`,
-      );
+      // console.log(
+      //   `✅ Quiz ${quizId} updated to ${body.status}. Insights saved.`,
+      // );
 
       return {
         message: `✅ Quiz successfully updated to ${body.status}`,
@@ -218,6 +221,33 @@ export class QuizController {
     } catch (error) {
       console.error('❌ Error updating quiz status:', error);
       throw new InternalServerErrorException('Failed to update quiz status.');
+    }
+  }
+
+  @Get('/verify-access/:launchId/:accessCode')
+  async verifyQuizAccess(
+    @Param('launchId') launchId: string,
+    @Param('accessCode') accessCode: string,
+  ): Promise<{ message: string }> {
+    try {
+      console.log(`🔑 Verifying access code for quiz: ${launchId}`);
+
+      const isValid = await this.quizService.verifyAccessCode(
+        launchId,
+        accessCode,
+      );
+
+      if (!isValid) {
+        throw new UnauthorizedException(`Invalid access code.`);
+      }
+
+      return { message: 'Access code verified successfully' };
+    } catch (error) {
+      console.error(`❌ Error verifying access code:`, error);
+      throw error instanceof NotFoundException ||
+        error instanceof UnauthorizedException
+        ? error
+        : new InternalServerErrorException('Failed to verify access code.');
     }
   }
 }

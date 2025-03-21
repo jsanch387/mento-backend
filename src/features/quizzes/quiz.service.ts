@@ -64,9 +64,8 @@ export class QuizService {
       throw new InternalServerErrorException('Missing required fields.');
     }
 
-    console.log('🚀 Generating AI prompt...');
     const prompt = generateQuizPrompt(input);
-    console.log('🔍 Sending request to OpenAI...');
+
     const aiResponse = await this.openAIService.generateContent(prompt);
 
     if (
@@ -79,8 +78,6 @@ export class QuizService {
         'AI response is missing expected fields.',
       );
     }
-
-    console.log('✅ AI response validated successfully.');
 
     // ✅ Ensure quizData includes all required fields
     const quizData: Omit<QuizData, 'id' | 'created_at'> = {
@@ -123,8 +120,6 @@ export class QuizService {
         );
       }
 
-      console.log('📥 Quiz saved successfully:', savedQuiz[0]);
-
       return savedQuiz[0]; // ✅ Return only the first quiz entry
     } catch (error) {
       console.error('❌ Error saving quiz:', error);
@@ -145,8 +140,6 @@ export class QuizService {
         throw new NotFoundException(`❌ Quiz with ID ${id} not found`);
       }
 
-      console.log(`✅ Fetched Quiz:`, results[0]);
-
       return results[0]; // ✅ Now TypeScript knows it is `QuizData`
     } catch (error) {
       console.error('❌ Error fetching quiz:', error);
@@ -162,27 +155,21 @@ export class QuizService {
     notes: string = '',
   ) {
     try {
-      console.log(`🚀 Launching Quiz ID: ${quizId} for User ID: ${userId}`);
-      console.log(`📚 Class Name: ${className}`);
-      if (notes) {
-        console.log(`📝 Notes: ${notes}`);
-      }
-
       const launchId = uuidv4();
-      console.log(`🆕 Generated Launch ID: ${launchId}`);
 
       const deploymentLink = `${process.env.FRONTEND_URL}/quiz/${launchId}`;
-      console.log(`🔗 Deployment Link: ${deploymentLink}`);
 
       // ✅ Generate QR code data for the deployment link
       const qrCodeData = await generateQRCode(deploymentLink);
-      console.log(`✅ QR Code Generated`);
 
-      // ✅ Save the launch record to the database, including deployment_url
+      // ✅ Generate a secure 6-digit numeric access code
+      const accessCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+      // ✅ Save the launch record to the database, including access code
       const query = `
-        INSERT INTO launched_quizzes (id, quiz_id, user_id, class_name, notes, deployment_url)
-        VALUES ($1, $2, $3, $4, $5, $6)
-      `;
+      INSERT INTO launched_quizzes (id, quiz_id, user_id, class_name, notes, deployment_url, access_code)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `;
 
       const values = [
         launchId,
@@ -191,12 +178,18 @@ export class QuizService {
         className,
         notes,
         deploymentLink,
+        accessCode,
       ];
-
       await this.databaseService.query(query, values);
-      console.log(`📥 Launch record saved to DB with deployment URL`);
 
-      return { launchId, deploymentLink, qrCodeData };
+      // ✅ Return access code along with other data
+      return {
+        message: 'Quiz launched successfully!',
+        launchId,
+        deploymentLink,
+        qrCodeData,
+        accessCode, // ✅ Include access code
+      };
     } catch (error) {
       console.error(`❌ Error launching quiz:`, error);
       throw new InternalServerErrorException('Failed to launch quiz.');
@@ -206,8 +199,6 @@ export class QuizService {
   // ✅ Fetch launched quiz details for student to take
   async getLaunchedQuiz(launchId: string) {
     try {
-      console.log(`🔍 Fetching launched quiz for launchId: ${launchId}`);
-
       const query = `
         SELECT l.id, l.quiz_id, l.class_name, l.notes, l.created_at, q.title, q.quiz_content
         FROM launched_quizzes l
@@ -223,7 +214,6 @@ export class QuizService {
         );
       }
 
-      console.log(`✅ Quiz fetched successfully for launchId: ${launchId}`);
       return results[0];
     } catch (error) {
       console.error('❌ Error fetching launched quiz:', error);
@@ -233,8 +223,6 @@ export class QuizService {
 
   async getLaunchedQuizzes(userId: string) {
     try {
-      console.log(`🔍 Fetching launched quizzes for userId: ${userId}`);
-
       const query = `
         SELECT 
           l.id, 
@@ -259,9 +247,6 @@ export class QuizService {
         return [];
       }
 
-      console.log(
-        `✅ Fetched ${results.length} launched quizzes for userId: ${userId}`,
-      );
       return results;
     } catch (error) {
       console.error('❌ Error fetching launched quizzes:', error);
@@ -324,7 +309,6 @@ export class QuizService {
 
     try {
       await this.databaseService.query(query, values);
-      console.log(`✅ Saved graded quiz for ${studentName}`);
     } catch (error) {
       console.error(`❌ Failed to save graded quiz for ${studentName}:`, error);
       throw new InternalServerErrorException(
@@ -334,35 +318,16 @@ export class QuizService {
   }
 
   async gradeStudentQuiz(submission: any): Promise<GradedQuizResponse> {
-    console.log(
-      '🚀 Received submission for grading:',
-      JSON.stringify(submission, null, 2),
-    );
-    console.log(`📎 Deployment ID Received: ${submission.deploymentId}`);
-
     const prompt = generateGradingPrompt(submission);
-    console.log('🚀 Sending quiz for AI grading...');
 
     let gradedResult: GradedQuizResponse | null = null;
 
     for (let attempt = 1; attempt <= 2; attempt++) {
-      console.log(`🔄 Grading attempt ${attempt}...`);
-
       try {
         const aiResponse = await this.openAIService.generateContent(prompt);
 
-        console.log(
-          '🔎 Parsed AI Response:',
-          JSON.stringify(aiResponse, null, 2),
-        );
-
         if (aiResponse && Array.isArray(aiResponse.gradedAnswers)) {
           gradedResult = aiResponse;
-          console.log(`✅ Quiz graded successfully on attempt ${attempt}`);
-
-          console.log(
-            `💾 Saving graded quiz to database - Deployment ID: ${submission.deploymentId}`,
-          );
 
           // ✅ Save Student's Graded Quiz
           await this.saveGradedQuizToDatabase(
@@ -395,25 +360,22 @@ export class QuizService {
 
   //* ✅ Updates students_completed & average_score in launched_quizzes
   async updateLaunchedQuizStats(deploymentId: string) {
-    console.log(`📊 Updating stats for launched quiz: ${deploymentId}`);
-
     const updateQuery = `
-      UPDATE launched_quizzes
-      SET 
-        students_completed = (
-          SELECT COUNT(*) FROM student_quiz_results WHERE deployment_id = $1
-        ),
-        average_score = (
-          SELECT COALESCE(AVG(score_percentage), 0) 
-          FROM student_quiz_results 
-          WHERE deployment_id = $1
-        )
-      WHERE id = $1::UUID; -- Ensure it's treated as a UUID
-    `;
+    UPDATE launched_quizzes
+    SET 
+      students_completed = (
+        SELECT COUNT(*) FROM student_quiz_results WHERE deployment_id = $1
+      ),
+      average_score = (
+        SELECT COALESCE(ROUND(AVG(score_percentage)), 0)  -- ✅ Round to whole number
+        FROM student_quiz_results 
+        WHERE deployment_id = $1
+      )
+    WHERE id = $1::UUID; -- Ensure it's treated as a UUID
+  `;
 
     try {
       await this.databaseService.query(updateQuery, [deploymentId]);
-      console.log(`✅ Successfully updated launched quiz stats.`);
     } catch (error) {
       console.error(`❌ Failed to update launched quiz stats:`, error);
     }
@@ -428,7 +390,8 @@ export class QuizService {
     averageScore: number;
     status: string;
     launchUrl: string;
-    qrCodeData?: string; // ✅ Add QR Code field
+    qrCodeData?: string; // ✅ QR Code field
+    accessCode: string; // ✅ Include Access Code
     totalQuestions: number;
     smartInsights: string | null; // ✅ Updated type from JSONB to TEXT
     students: {
@@ -441,11 +404,7 @@ export class QuizService {
     }[];
   }> {
     try {
-      console.log(
-        `📊 Fetching launched quiz overview for launchId: ${launchId}`,
-      );
-
-      // ✅ Query to fetch quiz overview
+      // ✅ Query to fetch quiz overview including access code
       const quizQuery = `
         SELECT 
           l.id, 
@@ -458,7 +417,8 @@ export class QuizService {
           COALESCE(l.average_score, 0) AS average_score,
           COALESCE(l.smart_insights, '') AS smart_insights, -- ✅ Updated to handle TEXT type
           COALESCE(l.deployment_url, '') AS launch_url,
-          l.status
+          l.status,
+          l.access_code AS access_code -- ✅ Include Access Code
         FROM launched_quizzes l
         JOIN quizzes q ON l.quiz_id = q.id
         WHERE l.id = $1;
@@ -497,6 +457,7 @@ export class QuizService {
         launch_url: string;
         smart_insights: string | null;
         total_questions: number;
+        access_code: string; // ✅ Store Access Code
       };
 
       // Fetch student results
@@ -547,6 +508,7 @@ export class QuizService {
         status: quizOverview.status,
         launchUrl: quizOverview.launch_url,
         qrCodeData, // ✅ Include the QR Code in the response
+        accessCode: quizOverview.access_code, // ✅ Include Access Code
         totalQuestions: quizOverview.total_questions,
         smartInsights: quizOverview.smart_insights || null, // ✅ Ensure correct type
         students: formattedStudents,
@@ -565,8 +527,6 @@ export class QuizService {
     smartInsights: string | null,
   ) {
     try {
-      console.log(`📌 Updating quiz ${quizId} to status: ${status}`);
-
       const query = `
         UPDATE launched_quizzes
         SET status = $1, smart_insights = $2
@@ -574,8 +534,6 @@ export class QuizService {
       `;
 
       await this.databaseService.query(query, [status, smartInsights, quizId]);
-
-      console.log('✅ Quiz status and smart insights updated successfully!');
     } catch (error) {
       console.error('❌ Error updating quiz status and insights:', error);
       throw new InternalServerErrorException(
@@ -586,8 +544,6 @@ export class QuizService {
 
   async generateSmartInsights(quizId: string): Promise<string | null> {
     try {
-      console.log(`🔍 Fetching student results for quiz ID: ${quizId}`);
-
       // Fetch quiz metadata (average score, etc.)
       const quizQuery = `
         SELECT average_score 
@@ -620,26 +576,20 @@ export class QuizService {
         return 'There are no student responses yet. Please wait for more students to submit the quiz.';
       }
 
-      console.log(`📊 Found ${studentResults.length} student results.`);
-
       // ✅ Ensure we send all needed data to AI
       const processedData = this.prepareQuizDataForAI(
         studentResults,
         averageScore,
       );
 
-      console.log('🧠 Generating AI prompt...');
       const prompt = this.generateInsightsPrompt(processedData);
 
-      console.log('🔍 Sending request to OpenAI...');
       const aiResponse = await this.openAIService.generateTextContent(prompt);
 
       if (!aiResponse) {
         console.error('❌ AI response missing.');
         return 'Smart insights could not be generated at this time. Please try again later.';
       }
-
-      console.log('✅ AI Smart Insights received:', aiResponse);
 
       return aiResponse;
     } catch (error) {
@@ -771,5 +721,45 @@ export class QuizService {
   
     🔹 Keep the feedback **friendly, useful, and insightful**—make it feel like a fellow teacher sharing their best advice!  
     `.trim();
+  }
+
+  async verifyAccessCode(
+    launchId: string,
+    accessCode: string,
+  ): Promise<boolean> {
+    try {
+      const query = `SELECT access_code FROM launched_quizzes WHERE id = $1`;
+      const result: { access_code: string }[] =
+        await this.databaseService.query(query, [launchId]);
+
+      if (result.length === 0) {
+        console.error(`❌ No quiz found for launch ID: ${launchId}`);
+        throw new NotFoundException(`Quiz with ID ${launchId} not found.`);
+      }
+
+      const storedAccessCode = result[0].access_code;
+
+      if (!storedAccessCode) {
+        throw new InternalServerErrorException(
+          `Access code is missing for quiz ${launchId}`,
+        );
+      }
+
+      // Ensure both are strings and trim spaces before comparing
+      const storedCode = storedAccessCode.trim();
+      const receivedCode = accessCode.trim();
+
+      if (storedCode !== receivedCode) {
+        console.warn(`❌ Access code mismatch!`);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error(`❌ Error verifying access code:`, error);
+      throw error instanceof NotFoundException
+        ? error
+        : new InternalServerErrorException('Failed to verify access code.');
+    }
   }
 }

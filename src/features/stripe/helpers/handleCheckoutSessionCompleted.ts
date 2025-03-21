@@ -24,8 +24,6 @@ export const handleCheckoutSessionCompleted = async (
   const session = event.data.object as Stripe.Checkout.Session;
   const userId = session.client_reference_id;
 
-  console.log(`Processing checkout session completed for user: ${userId}`);
-
   const sessionWithLineItems = await stripe.checkout.sessions.retrieve(
     session.id,
     {
@@ -48,9 +46,6 @@ export const handleCheckoutSessionCompleted = async (
   }
 
   try {
-    console.log(
-      `Updating profile for user ${userId} with tier=${plan.tier} and tokens=${plan.tokens}`,
-    );
     await updateUserProfile(userId, plan.tier, plan.tokens);
 
     const startDate = new Date(subscription.current_period_start * 1000);
@@ -58,7 +53,6 @@ export const handleCheckoutSessionCompleted = async (
       ? new Date(subscription.current_period_end * 1000)
       : null;
 
-    console.log(`Creating subscription entry for user ${userId}`);
     await createSubscription(
       userId,
       subscription.id,
@@ -66,8 +60,6 @@ export const handleCheckoutSessionCompleted = async (
       startDate,
       renewalDate,
     );
-
-    console.log(`Subscription successfully created for user: ${userId}`);
   } catch (error) {
     console.error('Error handling checkout.session.completed:', error.message);
   }

@@ -50,11 +50,9 @@ export async function generateQuizWithRetries(
   let lastError: any;
 
   while (attempt <= maxRetries) {
-    console.log(`🔄 Attempt ${attempt + 1} of ${maxRetries + 1}`);
     const aiResponse = await openAIService.generateContent(prompt);
 
     if (validateQuizResponse(aiResponse)) {
-      console.log('✅ AI response validated successfully.');
       return aiResponse;
     } else {
       console.warn(`⚠️ AI response validation failed (attempt ${attempt + 1})`);
