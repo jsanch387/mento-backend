@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { OpenAIService } from '../../services/openai.service';
 import { DatabaseService } from '../../services/database.service';
-import { generateLessonPlanPrompt } from './lesson-plan.util';
+import { extractTitle } from './utils/extractTitle';
+import { generateLessonPlanPrompt } from './utils/generateLessonPlanPrompt';
 
 @Injectable()
 export class LessonPlanService {
@@ -10,10 +11,7 @@ export class LessonPlanService {
     private readonly databaseService: DatabaseService,
   ) {}
 
-  /**
-   * Creates a new lesson plan using OpenAI and stores it in the database.
-   */
-  async createLessonPlan(
+  async generateLessonPlan(
     userId: string,
     promptDetails: {
       gradeLevel: string;
@@ -22,43 +20,43 @@ export class LessonPlanService {
       additionalDetails?: string;
     },
   ): Promise<any> {
-    // Generate the prompt
     const prompt = generateLessonPlanPrompt(promptDetails);
+    const markdownContent =
+      await this.openAIService.generateTextContent(prompt);
 
-    // Get the lesson plan from OpenAI
-    const lessonPlan = await this.openAIService.generateContent(prompt);
+    const title = extractTitle(markdownContent);
 
-    // Save to database
-    await this.databaseService.query(
+    const result = await this.databaseService.query(
       `
-      INSERT INTO lesson_plans (user_id, title, overview, materials, learning_objectives, lesson_plan_structure)
-      VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6::jsonb)
-      RETURNING *;
+      INSERT INTO markdown_lesson_plans 
+      (user_id, grade_level, subject, duration, additional_details, content, title)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING id, title, grade_level, subject, duration, additional_details, content, created_at;
       `,
       [
         userId,
-        lessonPlan.title,
-        JSON.stringify(lessonPlan.overview),
-        JSON.stringify(lessonPlan.materials),
-        JSON.stringify(lessonPlan.learningObjectives),
-        JSON.stringify(lessonPlan.lessonPlanStructure),
+        promptDetails.gradeLevel,
+        promptDetails.subject,
+        promptDetails.duration,
+        promptDetails.additionalDetails || null,
+        markdownContent,
+        title,
       ],
     );
 
-    return lessonPlan;
+    return result[0];
   }
 
-  /**
-   * Retrieves a lesson plan by its ID.
-   */
-  async getLessonPlanById(id: string) {
-    const query = `
-      SELECT id, user_id, title, overview, materials, learning_objectives, lesson_plan_structure, created_at
-      FROM lesson_plans
+  async getLessonPlanById(id: string): Promise<any> {
+    const result = await this.databaseService.query(
+      `
+      SELECT * FROM markdown_lesson_plans
       WHERE id = $1
-    `;
-    const results = await this.databaseService.query(query, [id]);
+      LIMIT 1;
+      `,
+      [id],
+    );
 
-    return results[0] || null; // Return the lesson plan or null if not found
+    return result[0] || null;
   }
 }

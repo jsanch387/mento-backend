@@ -13,7 +13,7 @@ import { LessonPlanService } from './lesson-plan.service';
 export class LessonPlanController {
   constructor(private readonly lessonPlanService: LessonPlanService) {}
 
-  @Post()
+  @Post('/generate')
   async createLessonPlan(
     @Body()
     body: {
@@ -24,20 +24,18 @@ export class LessonPlanController {
     },
     @Req() req: any,
   ) {
-    const user = req.user; // Authenticated user from middleware
-    const userId = user.sub; // Use the user's unique ID
+    const userId = req.user?.sub;
 
     if (!body.gradeLevel || !body.subject || !body.duration) {
-      return {
-        error: 'Please provide gradeLevel, subject, and duration.',
-      };
+      return { error: 'Please provide gradeLevel, subject, and duration.' };
     }
 
-    const lessonPlan = await this.lessonPlanService.createLessonPlan(
+    const lessonPlan = await this.lessonPlanService.generateLessonPlan(
       userId,
       body,
     );
-    return { lessonPlan };
+
+    return lessonPlan; // 👈 returns the flat object directly (no wrapper)
   }
 
   @Get('/:id')
@@ -48,6 +46,8 @@ export class LessonPlanController {
       throw new NotFoundException(`Lesson plan with ID ${id} not found`);
     }
 
-    return lessonPlan;
+    // ✅ Remove user_id from response before sending to frontend
+    const { ...publicLessonPlan } = lessonPlan;
+    return publicLessonPlan;
   }
 }

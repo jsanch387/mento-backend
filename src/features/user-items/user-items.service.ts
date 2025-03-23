@@ -13,11 +13,10 @@ interface ResourceConfig {
 
 const RESOURCE_CONFIG: Record<string, ResourceConfig> = {
   'lesson-plans': {
-    table: 'lesson_plans',
+    table: 'markdown_lesson_plans',
     previewQuery: `
-      SELECT id, title, overview->>'gradeLevel' as grade, 
-             overview->>'subject' as subject, created_at
-      FROM lesson_plans
+      SELECT id, title, subject, grade_level as grade, created_at
+      FROM markdown_lesson_plans
       WHERE user_id = $1
       ORDER BY created_at DESC;
     `,
