@@ -133,12 +133,6 @@ export class QuizController {
     }
   }
 
-  // @Get('/:id/existing-launch')
-  // async checkExistingLaunch(@Param('id') quizId: string) {
-  //   const result = await this.quizService.getExistingLaunchForQuiz(quizId);
-  //   return result;
-  // }
-
   //grades the student quiz stores in new row, updates launched_quizzes db entry - count and average
   @Post('/grade')
   async gradeQuiz(

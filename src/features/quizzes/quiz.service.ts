@@ -11,6 +11,7 @@ import { INSERT_QUIZ, GET_QUIZ_BY_ID } from './queries/quiz.queries';
 import { GradedAnswer, GradedQuizResponse, QuizData } from './types/quiz.types'; // ✅ Use extracted types
 import { generateQRCode } from './utils/qr.utils';
 import { generateGradingPrompt } from './utils/quizGrading.utils';
+import { generateQuizWithRetries } from './utils/quizValidation.utils';
 // import { parseStrictJSON } from './utils/json.utls';
 
 // Define types for database results
@@ -59,27 +60,19 @@ export class QuizService {
       !input.topic ||
       !input.gradeLevel ||
       !input.numberOfQuestions ||
-      !input.questionTypes.length
+      input.questionTypes.length === 0
     ) {
       throw new InternalServerErrorException('Missing required fields.');
     }
 
     const prompt = generateQuizPrompt(input);
 
-    const aiResponse = await this.openAIService.generateContent(prompt);
+    // 🔁 Retry AI response validation up to 2 times
+    const aiResponse = await generateQuizWithRetries(
+      this.openAIService,
+      prompt,
+    );
 
-    if (
-      !aiResponse ||
-      !Array.isArray(aiResponse.quiz_content) ||
-      typeof aiResponse.teaching_insights !== 'string'
-    ) {
-      console.error('❌ AI response missing expected fields:', aiResponse);
-      throw new InternalServerErrorException(
-        'AI response is missing expected fields.',
-      );
-    }
-
-    // ✅ Ensure quizData includes all required fields
     const quizData: Omit<QuizData, 'id' | 'created_at'> = {
       user_id: userId,
       title: `Quiz on ${input.topic}`,
@@ -107,20 +100,19 @@ export class QuizService {
         quizData.custom_instructions,
       ];
 
-      // ✅ Explicitly define `savedQuiz` as `QuizData[]`
-      const savedQuiz: QuizData[] = await this.databaseService.query(
+      // ✅ Type-safe query response
+      const saved: QuizData[] = await this.databaseService.query<QuizData>(
         INSERT_QUIZ,
         values,
       );
 
-      // ✅ Ensure the database returned a valid result
-      if (!savedQuiz || savedQuiz.length === 0) {
+      if (!saved || saved.length === 0) {
         throw new InternalServerErrorException(
           'Database did not return saved quiz.',
         );
       }
 
-      return savedQuiz[0]; // ✅ Return only the first quiz entry
+      return saved[0];
     } catch (error) {
       console.error('❌ Error saving quiz:', error);
       throw new InternalServerErrorException('Failed to save quiz.');
@@ -255,36 +247,6 @@ export class QuizService {
       );
     }
   }
-
-  // async getExistingLaunchForQuiz(quizId: string) {
-  //   const query = `
-  //     SELECT id, quiz_id, user_id, class_name, created_at
-  //     FROM launched_quizzes
-  //     WHERE quiz_id = $1
-  //     ORDER BY created_at DESC
-  //     LIMIT 1;
-  //   `;
-
-  //   const results = await this.databaseService.query(query, [quizId]);
-
-  //   if (results.length > 0) {
-  //     const launch = results[0] as LaunchedQuiz;
-
-  //     const link = `${process.env.FRONTEND_URL}/quiz/${launch.id}`;
-  //     const qrCodeData = await generateQRCode(link);
-
-  //     return {
-  //       exists: true,
-  //       launchId: launch.id,
-  //       deploymentLink: link,
-  //       qrCodeData,
-  //       className: launch.class_name,
-  //       createdAt: launch.created_at,
-  //     };
-  //   } else {
-  //     return { exists: false };
-  //   }
-  // }
 
   async saveGradedQuizToDatabase(
     deploymentId: string,
