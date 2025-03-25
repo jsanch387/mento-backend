@@ -611,80 +611,44 @@ export class QuizService {
 
   private generateInsightsPrompt(quizData: any) {
     return `
-    You are an **AI Teaching Assistant** helping a fellow teacher analyze their class quiz results.  
-    Your goal is to **highlight patterns, identify struggles, and provide creative, practical recommendations** to help improve student understanding.  
+    Generate insights in this exact format:
   
-    🎯 **How to respond:**  
-    - Be **friendly and conversational**, like a teacher talking to another teacher.  
-    - Use **plain, simple English** and make it **fun, modern, and engaging**.  
-    - Structure insights **clearly using Markdown** for easy scanning.  
-    - Give **data-driven teaching suggestions** based on real struggles in this quiz.  
-    - Avoid generic advice—**be specific and insightful** based on student performance.  
+    ### Class Performance Snapshot
+    🔍 Critical Struggle
+    - Concept: [Most missed concept name]
+    - Example: "[Exact question wording]"
+    - Why: "[Root cause explanation]"
   
-    ---
-    ## 📌 Quick Overview  
-    - **Class Average Score:** ${quizData.averageScore ?? 'N/A'}%.  
-    - **Biggest Challenge:** ${
-      quizData.topStruggle?.length
-        ? quizData.topStruggle
-        : 'No major struggles detected.'
-    }  
+    🎯 Top Strength
+    - "[Mastered concept]"
+    - "[Teaching success note]"
   
-    ---
-    ## ❌ What Students Struggled With  
-    ${
-      quizData.mostMissedQuestions?.length > 0
-        ? quizData.mostMissedQuestions
-            .map(
-              (q) =>
-                `- **${q.question}** (Missed ${q.timesMissed} times)  
-                💡 Why? ${q.reason}`,
-            )
-            .join('\n')
-        : "Students didn't seem to struggle significantly with any specific question."
-    }
+    ### Student Overview
+    🚨 Priority Interventions
+    - [Name]: [Misconception] → "[Action]"
+    - [Name]: [Misconception] → "[Action]"
   
-    ---
-    ## 🎯 Student Performance Breakdown  
-    - **High Performers (80%+ Score):** ${
-      quizData.topStudents?.length > 0
-        ? quizData.topStudents.join(', ')
-        : 'None'
-    }  
-    - **Middle Performers (50-79% Score):** ${
-      quizData.middleTier?.length > 0 ? quizData.middleTier.join(', ') : 'None'
-    }  
-    - **Struggling Students (<50% Score):** ${
-      quizData.strugglingStudents?.length > 0
-        ? quizData.strugglingStudents.join(', ')
-        : 'None'
-    }  
+    🌟 Top Performers
+    - [Name1], [Name2]
   
-    ---
-    ## 📝 Smart Teaching Suggestions  
-    Based on the quiz results, here’s what **you can do next** to reinforce learning in a fun and effective way:  
+    ### Concept Reinforcement Plan
+    🛠️ Activity 1: [Name]
+    - Do: [Instructions]
+    - Fixes: [Misconception]
+    - Need: [Materials]
   
-    ${
-      quizData.mostMissedQuestions?.length > 0
-        ? quizData.mostMissedQuestions
-            .map(
-              (q) =>
-                `### **🔹 Reinforce: "${q.question}"**  
-                **Why students struggled:** ${q.reason}  
-                **Try this approach:** [Let AI suggest an engaging way to teach this topic]`,
-            )
-            .join('\n\n')
-        : 'No extra reinforcement needed this time—great job!'
-    }
+    🛠️ Activity 2: [Name]
+    - Do: [Instructions]
+    - Fixes: [Misconception]
+    - Need: [Materials]
   
-    ---
-    ## 📢 Final Thoughts  
-    ${quizData.averageScore < 60 ? '📉 This was a tough quiz! Consider a quick review session to clear up confusion.' : '✅ The class did well! A small recap might help reinforce key concepts.'}  
-  
-    🔹 Keep the feedback **friendly, useful, and insightful**—make it feel like a fellow teacher sharing their best advice!  
-    `.trim();
+    Rules:
+    - Use only the structure above
+    - Keep all bullet points to 1 line
+    - Base insights on: ${JSON.stringify(quizData)}
+    - Never suggest peer teaching
+    `;
   }
-
   async verifyAccessCode(
     launchId: string,
     accessCode: string,
